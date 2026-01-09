@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build:
@@ -19,8 +19,6 @@ jobs:
             target: x86_64-pc-windows-msvc
           - platform: macos-latest
             target: aarch64-apple-darwin
-          - platform: macos-latest
-            target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.platform }}
 
@@ -31,7 +29,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
+          node-version: "lts/*"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -77,8 +75,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Linch Redact ${{ github.ref_name }}'
-          releaseBody: 'See the assets below for download links.'
+          releaseName: "Linch Redact ${{ github.ref_name }}"
+          releaseBody: "See the assets below for download links."
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}

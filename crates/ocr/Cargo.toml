@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # ONNX Runtime v2
-ort = { version = "2.0.0-rc.11", default-features = false, features = ["std", "download-binaries", "ndarray", "tls-native"] }
+ort = { version = "2.0.0-rc.11", default-features = false, features = ["std", "download-binaries", "load-dynamic", "ndarray", "tls-native"] }
 ndarray = "0.17"
 
 # Image processing
