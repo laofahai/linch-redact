@@ -1,0 +1,60 @@
+[package]
+name = "linch-redact"
+version = "0.1.0"
+description = "Linch Redact - PDF Sensitive Content Redaction Tool"
+authors = ["Linch Tech"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Linch Desktop Core
+linch_tech_desktop_core = "0.1"
+
+# Tauri
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-fs = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-log = "2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Logging & Error Handling
+log = "0.4"
+thiserror = "1"
+
+# Network & Download
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+
+# Crypto & Archive
+sha2 = "0.10"
+hex = "0.4"
+zip = "2.2"
+
+# PDF Processing
+lopdf = "0.34"
+pdfium-render = { version = "0.8", features = ["image"] }
+
+# Image Processing
+image = "0.25"
+imageproc = "0.25"
+
+# Detection
+regex = "1.10"
+chrono = "0.4"
+
+# OCR
+linch-ocr = { path = "../crates/ocr" }
