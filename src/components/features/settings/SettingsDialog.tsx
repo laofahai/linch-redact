@@ -43,7 +43,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     useUpdater({ enabled: config.features?.updater !== false })
   const engineStatus = useOcrStore((s) => s.engineStatus)
   const currentEngine = useOcrStore((s) => s.currentEngine)
-  const setEngine = useOcrStore((s) => s.setEngine)
+  const setCurrentEngine = useOcrStore((s) => s.setCurrentEngine)
   const openOcrDialog = useOcrStore((s) => s.openDialog)
 
   const handleCheckUpdate = async () => {
@@ -249,7 +249,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 <div className="space-y-3">
                   {/* Tesseract */}
                   <button
-                    onClick={() => setEngine("tesseract")}
+                    onClick={() => setCurrentEngine("tesseract")}
                     className={cn(
                       "w-full rounded-lg border p-4 text-left transition-all",
                       currentEngine === "tesseract"
@@ -288,7 +288,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
                   {/* Paddle OCR */}
                   <button
-                    onClick={() => setEngine("paddle")}
+                    onClick={() => setCurrentEngine("paddle")}
                     className={cn(
                       "w-full rounded-lg border p-4 text-left transition-all",
                       currentEngine === "paddle"
