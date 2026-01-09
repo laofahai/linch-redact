@@ -1,7 +1,7 @@
 //! OCR 引擎 trait 定义
 
+use crate::ocr::types::{OcrAuditInfo, OcrTextResult};
 use image::DynamicImage;
-use crate::ocr::types::{OcrTextResult, OcrAuditInfo};
 
 /// OCR 引擎统一 trait
 pub trait OcrEngine: Send {
@@ -10,8 +10,7 @@ pub trait OcrEngine: Send {
 
     /// 识别图片文件
     fn recognize_file(&mut self, image_path: &str) -> Result<Vec<OcrTextResult>, String> {
-        let img = image::open(image_path)
-            .map_err(|e| format!("打开图片失败: {}", e))?;
+        let img = image::open(image_path).map_err(|e| format!("打开图片失败: {}", e))?;
         self.recognize_image(&img)
     }
 
@@ -19,7 +18,11 @@ pub trait OcrEngine: Send {
     #[allow(dead_code)]
     fn extract_text(&mut self, image_path: &str) -> Result<String, String> {
         let results = self.recognize_file(image_path)?;
-        let text: String = results.iter().map(|r| r.text.as_str()).collect::<Vec<_>>().join(" ");
+        let text: String = results
+            .iter()
+            .map(|r| r.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
         Ok(text)
     }
 

@@ -8,8 +8,7 @@ use tauri::Emitter;
 
 use crate::config::{models_dir, save_config, AppConfig, ConfigResult};
 use crate::ocr::types::{
-    BBox, DownloadProgress, OcrTextResult,
-    PaddleInstallRequest, PaddleInstallResult, PaddleStatus,
+    BBox, DownloadProgress, OcrTextResult, PaddleInstallRequest, PaddleInstallResult, PaddleStatus,
 };
 
 /// 全局 Paddle OCR 引擎实例
@@ -17,7 +16,6 @@ static PADDLE_ENGINE: Mutex<Option<linch_ocr::PaddleOcrEngine>> = Mutex::new(Non
 
 /// 存储模型路径用于自动初始化
 static PADDLE_MODEL_PATHS: Mutex<Option<(String, String)>> = Mutex::new(None);
-
 
 /// 下载文件（带进度）
 fn download_file_with_progress(
@@ -208,8 +206,8 @@ fn init_paddle_engine_with_paths(det_path: &str, rec_path: &str) -> ConfigResult
         dict_path: None,
     };
 
-    let engine =
-        linch_ocr::PaddleOcrEngine::new(&ocr_config).map_err(|e| format!("初始化 Paddle OCR 引擎失败: {}", e))?;
+    let engine = linch_ocr::PaddleOcrEngine::new(&ocr_config)
+        .map_err(|e| format!("初始化 Paddle OCR 引擎失败: {}", e))?;
 
     let mut guard = PADDLE_ENGINE
         .lock()
@@ -231,10 +229,7 @@ pub fn paddle_recognize(image_path: &str) -> ConfigResult<Vec<OcrTextResult>> {
         if guard.is_none() {
             log::info!("[Paddle] 引擎未初始化，尝试自动初始化...");
             // 获取模型路径
-            let paths = PADDLE_MODEL_PATHS
-                .lock()
-                .ok()
-                .and_then(|g| g.clone());
+            let paths = PADDLE_MODEL_PATHS.lock().ok().and_then(|g| g.clone());
 
             drop(guard); // 先释放引擎锁
 
@@ -251,9 +246,7 @@ pub fn paddle_recognize(image_path: &str) -> ConfigResult<Vec<OcrTextResult>> {
         .lock()
         .map_err(|e| format!("获取锁失败: {}", e))?;
 
-    let engine = guard
-        .as_mut()
-        .ok_or("Paddle OCR 引擎未初始化")?;
+    let engine = guard.as_mut().ok_or("Paddle OCR 引擎未初始化")?;
 
     let results = engine
         .recognize_file(image_path)
@@ -273,4 +266,3 @@ pub fn paddle_recognize(image_path: &str) -> ConfigResult<Vec<OcrTextResult>> {
         })
         .collect())
 }
-

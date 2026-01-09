@@ -10,8 +10,12 @@ mod tesseract;
 mod types;
 
 pub use engine::OcrEngine;
-pub use paddle::{get_paddle_status, init_paddle_engine, install_paddle_models, is_paddle_installed};
-pub use tesseract::{detect_tesseract_status, get_tesseract_langs, install_tesseract, Platform, TesseractEngine};
+pub use paddle::{
+    get_paddle_status, init_paddle_engine, install_paddle_models, is_paddle_installed,
+};
+pub use tesseract::{
+    detect_tesseract_status, get_tesseract_langs, install_tesseract, Platform, TesseractEngine,
+};
 pub use types::*;
 
 use crate::config::{load_config, save_config, ConfigResult};

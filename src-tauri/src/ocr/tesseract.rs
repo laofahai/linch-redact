@@ -6,7 +6,9 @@ use std::process::Command;
 use std::time::Instant;
 
 use crate::ocr::engine::OcrEngine;
-use crate::ocr::types::{BBox, OcrAuditInfo, OcrEngineType, OcrTextResult, TesseractConfig, TesseractStatus};
+use crate::ocr::types::{
+    BBox, OcrAuditInfo, OcrEngineType, OcrTextResult, TesseractConfig, TesseractStatus,
+};
 
 /// Tesseract OCR 引擎
 pub struct TesseractEngine {
@@ -92,7 +94,9 @@ impl OcrEngine for TesseractEngine {
             self.config.oem_or_default()
         );
 
-        let output = cmd.output().map_err(|e| format!("执行 tesseract 失败: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("执行 tesseract 失败: {}", e))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -128,7 +132,11 @@ impl OcrEngine for TesseractEngine {
             engine_type: OcrEngineType::Tesseract,
             engine_version: self.version.clone(),
             engine_params: Some(params.to_string()),
-            tessdata_hash: self.config.tessdata_path.as_ref().and_then(|p| compute_tessdata_hash(p).ok()),
+            tessdata_hash: self
+                .config
+                .tessdata_path
+                .as_ref()
+                .and_then(|p| compute_tessdata_hash(p).ok()),
         }
     }
 }
@@ -139,7 +147,11 @@ impl OcrEngine for TesseractEngine {
 /// level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext
 ///
 /// 返回单词级别的结果，每个词有独立的 bbox，便于精确遮盖
-fn parse_tesseract_tsv(tsv: &str, img_width: f32, img_height: f32) -> Result<Vec<OcrTextResult>, String> {
+fn parse_tesseract_tsv(
+    tsv: &str,
+    img_width: f32,
+    img_height: f32,
+) -> Result<Vec<OcrTextResult>, String> {
     let mut results = Vec::new();
 
     for line in tsv.lines().skip(1) {
@@ -210,7 +222,10 @@ pub fn get_tesseract_version(binary_path: &str) -> Result<String, String> {
 }
 
 /// 获取 Tesseract 可用语言列表
-pub fn get_tesseract_langs(binary_path: &str, tessdata_path: Option<&str>) -> Result<Vec<String>, String> {
+pub fn get_tesseract_langs(
+    binary_path: &str,
+    tessdata_path: Option<&str>,
+) -> Result<Vec<String>, String> {
     let mut cmd = Command::new(binary_path);
     cmd.arg("--list-langs");
 
@@ -256,7 +271,9 @@ pub fn detect_tesseract_status(config: &TesseractConfig) -> TesseractStatus {
             let actual_path = which_tesseract(binary_path);
 
             // 查找 tessdata 路径
-            let tessdata = config.tessdata_path.clone()
+            let tessdata = config
+                .tessdata_path
+                .clone()
                 .or_else(|| find_tessdata_path(binary_path));
 
             TesseractStatus {
@@ -392,7 +409,8 @@ where
 fn is_wsl() -> bool {
     // 检查 /proc/version 是否包含 WSL 或 Microsoft
     if let Ok(version) = std::fs::read_to_string("/proc/version") {
-        return version.to_lowercase().contains("wsl") || version.to_lowercase().contains("microsoft");
+        return version.to_lowercase().contains("wsl")
+            || version.to_lowercase().contains("microsoft");
     }
     false
 }
@@ -442,10 +460,18 @@ where
         ("x-terminal-emulator", vec!["-e", "bash", "-c"]),
     ];
 
-    let full_script = format!("{}; echo ''; echo '安装完成，按回车键关闭此窗口...'; read", install_script);
+    let full_script = format!(
+        "{}; echo ''; echo '安装完成，按回车键关闭此窗口...'; read",
+        install_script
+    );
 
     for (terminal, args) in &terminals {
-        if Command::new("which").arg(terminal).output().map(|o| o.status.success()).unwrap_or(false) {
+        if Command::new("which")
+            .arg(terminal)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
             let mut cmd = Command::new(terminal);
             for arg in args {
                 cmd.arg(arg);
@@ -478,11 +504,32 @@ where
     });
 
     let install_cmd = if Command::new("apt").arg("--version").output().is_ok() {
-        vec!["apt", "install", "-y", "tesseract-ocr", "tesseract-ocr-chi-sim", "tesseract-ocr-eng"]
+        vec![
+            "apt",
+            "install",
+            "-y",
+            "tesseract-ocr",
+            "tesseract-ocr-chi-sim",
+            "tesseract-ocr-eng",
+        ]
     } else if Command::new("dnf").arg("--version").output().is_ok() {
-        vec!["dnf", "install", "-y", "tesseract", "tesseract-langpack-chi_sim", "tesseract-langpack-eng"]
+        vec![
+            "dnf",
+            "install",
+            "-y",
+            "tesseract",
+            "tesseract-langpack-chi_sim",
+            "tesseract-langpack-eng",
+        ]
     } else {
-        vec!["pacman", "-S", "--noconfirm", "tesseract", "tesseract-data-chi_sim", "tesseract-data-eng"]
+        vec![
+            "pacman",
+            "-S",
+            "--noconfirm",
+            "tesseract",
+            "tesseract-data-chi_sim",
+            "tesseract-data-eng",
+        ]
     };
 
     let mut cmd = Command::new("pkexec");
@@ -490,7 +537,9 @@ where
         cmd.arg(arg);
     }
 
-    let output = cmd.output().map_err(|e| format!("执行安装命令失败: {}", e))?;
+    let output = cmd
+        .output()
+        .map_err(|e| format!("执行安装命令失败: {}", e))?;
 
     if output.status.success() {
         progress_callback(TesseractInstallProgress {
@@ -503,7 +552,10 @@ where
         Ok(())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let error_msg = if stderr.contains("dismiss") || stderr.contains("cancel") || stderr.contains("Not authorized") {
+        let error_msg = if stderr.contains("dismiss")
+            || stderr.contains("cancel")
+            || stderr.contains("Not authorized")
+        {
             "用户取消了安装".to_string()
         } else if stderr.contains("textual authentication") || stderr.contains("/dev/tty") {
             "无法获取授权，请手动在终端中运行安装命令".to_string()
@@ -611,7 +663,14 @@ where
         });
 
         let output = Command::new("winget")
-            .args(["install", "--id", "UB-Mannheim.TesseractOCR", "-e", "--accept-source-agreements", "--accept-package-agreements"])
+            .args([
+                "install",
+                "--id",
+                "UB-Mannheim.TesseractOCR",
+                "-e",
+                "--accept-source-agreements",
+                "--accept-package-agreements",
+            ])
             .output()
             .map_err(|e| format!("执行 winget 失败: {}", e))?;
 
@@ -640,7 +699,11 @@ where
     #[cfg(target_os = "windows")]
     {
         let _ = Command::new("cmd")
-            .args(["/c", "start", "https://github.com/UB-Mannheim/tesseract/wiki"])
+            .args([
+                "/c",
+                "start",
+                "https://github.com/UB-Mannheim/tesseract/wiki",
+            ])
             .spawn();
     }
 

@@ -74,10 +74,12 @@ fn bind_pdfium() -> Result<Pdfium, String> {
     log::debug!("[SafeRender] 尝试加载系统 pdfium 库");
     Pdfium::bind_to_system_library()
         .map(Pdfium::new)
-        .map_err(|e| format!(
-            "Pdfium 库不可用: {}。\n请运行 ./scripts/setup-pdfium.sh 下载 pdfium 库。",
-            e
-        ))
+        .map_err(|e| {
+            format!(
+                "Pdfium 库不可用: {}。\n请运行 ./scripts/setup-pdfium.sh 下载 pdfium 库。",
+                e
+            )
+        })
 }
 
 /// 渲染配置
@@ -124,7 +126,12 @@ pub fn render_and_redact_page(
 
     log::info!(
         "[SafeRender] 页面 {}: {}x{} pt -> {}x{} px (DPI: {})",
-        page_index, page_width, page_height, target_width, target_height, config.dpi
+        page_index,
+        page_width,
+        page_height,
+        target_width,
+        target_height,
+        config.dpi
     );
 
     // 渲染页面为图片
@@ -161,10 +168,7 @@ pub fn render_and_redact_page(
         if w > 0 && h > 0 {
             let rect = Rect::at(x as i32, y as i32).of_size(w, h);
             draw_filled_rect_mut(&mut image, rect, black);
-            log::info!(
-                "[SafeRender] 绘制黑框: ({}, {}, {}, {})",
-                x, y, w, h
-            );
+            log::info!("[SafeRender] 绘制黑框: ({}, {}, {}, {})", x, y, w, h);
         }
     }
 
@@ -209,13 +213,8 @@ pub fn safe_redact_pdf(
         if let Some(masks) = masks {
             if !masks.is_empty() {
                 // 需要脱敏：渲染为图片并添加黑框
-                let redacted_image = render_and_redact_page(
-                    &pdfium,
-                    input_path,
-                    page_idx as usize,
-                    masks,
-                    config,
-                )?;
+                let redacted_image =
+                    render_and_redact_page(&pdfium, input_path, page_idx as usize, masks, config)?;
 
                 // 将图片添加到新 PDF
                 let mut new_page = new_doc
@@ -231,11 +230,8 @@ pub fn safe_redact_pdf(
                     .map_err(|e| format!("保存临时图片失败: {}", e))?;
 
                 // 创建图片对象并添加到页面
-                let mut image_obj = PdfPageImageObject::new_from_jpeg_file(
-                    &new_doc,
-                    &temp_path,
-                )
-                .map_err(|e| format!("创建图片对象失败: {}", e))?;
+                let mut image_obj = PdfPageImageObject::new_from_jpeg_file(&new_doc, &temp_path)
+                    .map_err(|e| format!("创建图片对象失败: {}", e))?;
 
                 // 设置图片尺寸和位置（覆盖整个页面）
                 image_obj
@@ -475,7 +471,12 @@ pub fn render_page_to_image(
 
     log::info!(
         "[RenderPage] 页面 {}: {}x{} pt -> {}x{} px (DPI: {})",
-        page_index, page_width, page_height, target_width, target_height, dpi
+        page_index,
+        page_width,
+        page_height,
+        target_width,
+        target_height,
+        dpi
     );
 
     // 渲染页面为图片
