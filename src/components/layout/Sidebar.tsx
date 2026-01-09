@@ -4,7 +4,7 @@ import { FileList } from "@/components/features/files/FileList"
 import { PageList } from "@/components/features/pages/PageList"
 import { DetectionPanel } from "@/components/features/detection/DetectionPanel"
 import { ModeSelector } from "@/components/features/settings/ModeSelector"
-import { useFileStore, useSettingsStore } from "@/stores"
+import { useFileStore, useSettingsStore, useSettingsDialogStore } from "@/stores"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -83,6 +83,7 @@ export function Sidebar() {
   const files = useFileStore((s) => s.files)
   const selectedFileId = useFileStore((s) => s.selectedFileId)
   const addFiles = useFileStore((s) => s.addFiles)
+  const openSettingsDialog = useSettingsDialogStore((s) => s.openDialog)
   const hasSelectedFile = !!selectedFileId
 
   const selectedFile = files.find((f) => f.id === selectedFileId)
@@ -166,6 +167,20 @@ export function Sidebar() {
           </div>
         </>
       )}
+
+      {/* 底部设置按钮 */}
+      <Separator />
+      <div className="shrink-0 p-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+          onClick={openSettingsDialog}
+        >
+          <Settings className="h-4 w-4" />
+          设置
+        </Button>
+      </div>
     </aside>
   )
 }

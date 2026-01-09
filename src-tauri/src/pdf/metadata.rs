@@ -419,6 +419,20 @@ fn get_annotation_ids(doc: &Document, annots_ref: &Object) -> Vec<ObjectId> {
   ids
 }
 
+/// 品牌信息配置
+pub struct BrandInfo {
+  pub name: &'static str,
+  pub version: &'static str,
+  pub url: &'static str,
+}
+
+/// 默认品牌信息
+pub const BRAND: BrandInfo = BrandInfo {
+  name: "Linch Redact",
+  version: env!("CARGO_PKG_VERSION"),
+  url: "https://linch.tech",
+};
+
 /// 设置脱敏工具的元信息
 ///
 /// 在 Info 字典中添加工具标识和处理时间
@@ -442,8 +456,8 @@ pub fn set_redaction_metadata(doc: &mut Document) -> Result<(), String> {
   let pdf_date = format!("D:{}", now.format("%Y%m%d%H%M%S%z"));
 
   // 工具信息
-  let producer = "Linch-Redact v0.1.0 (https://linch.tech)";
-  let creator = "Linch-Redact";
+  let producer = format!("{} v{} ({})", BRAND.name, BRAND.version, BRAND.url);
+  let creator = BRAND.name;
 
   if let Ok(Object::Dictionary(ref mut info_dict)) = doc.get_object_mut(info_id) {
     // 设置 Producer（生成工具）

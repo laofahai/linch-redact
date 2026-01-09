@@ -8,12 +8,16 @@ import { Sidebar } from "@/components/layout/Sidebar"
 import { MainPanel } from "@/components/layout/MainPanel"
 import { Footer } from "@/components/layout/Footer"
 import { OcrSetupDialog } from "@/components/features/ocr/OcrSetupDialog"
+import { SettingsDialog } from "@/components/features/settings/SettingsDialog"
 import { useOcrStore } from "@/stores/useOcrStore"
 import { useFileStore } from "@/stores/useFileStore"
+import { useSettingsDialogStore } from "@/stores/useSettingsDialogStore"
 
 function AppContent() {
   const loadStatus = useOcrStore((s) => s.loadStatus)
   const addFiles = useFileStore((s) => s.addFiles)
+  const settingsDialogOpen = useSettingsDialogStore((s) => s.isOpen)
+  const closeSettingsDialog = useSettingsDialogStore((s) => s.closeDialog)
   const [isDragging, setIsDragging] = useState(false)
   const { check } = useUpdater()
 
@@ -64,6 +68,7 @@ function AppContent() {
         </div>
       </div>
       <OcrSetupDialog />
+      <SettingsDialog open={settingsDialogOpen} onOpenChange={closeSettingsDialog} />
       <Toaster position="top-center" richColors />
 
       {/* 拖放覆盖层 */}

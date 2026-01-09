@@ -19,14 +19,13 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
 import { useFileStore, useEditorStore, useOcrStore } from "@/stores"
 import type { Rule, DetectionHit, Mask, PdfAnalysis } from "@/types"
 
@@ -245,25 +244,25 @@ export function DetectionPanel() {
 
       {expanded && (
         <>
-          {/* 规则列表 */}
-          <div className="space-y-1.5">
+          {/* 规则标签 */}
+          <div className="flex flex-wrap gap-1.5">
             {rules.map((rule) => {
               const Icon = ruleIcons[rule.id] || Search
               return (
-                <div key={rule.id} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`rule-${rule.id}`}
-                    checked={rule.enabled}
-                    onCheckedChange={() => toggleRule(rule.id)}
-                  />
-                  <Label
-                    htmlFor={`rule-${rule.id}`}
-                    className="flex items-center gap-1.5 text-xs cursor-pointer"
-                  >
-                    <Icon className="h-3 w-3 text-muted-foreground" />
-                    {rule.name}
-                  </Label>
-                </div>
+                <button
+                  key={rule.id}
+                  onClick={() => toggleRule(rule.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-all",
+                    "border cursor-pointer select-none",
+                    rule.enabled
+                      ? "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                      : "bg-muted/50 border-transparent text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  {rule.name}
+                </button>
               )
             })}
           </div>
