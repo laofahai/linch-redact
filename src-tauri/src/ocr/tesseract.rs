@@ -656,13 +656,15 @@ where
     if winget_check.is_ok() && winget_check.unwrap().status.success() {
         progress_callback(TesseractInstallProgress {
             stage: "install".to_string(),
-            message: "使用 winget 安装 Tesseract...".to_string(),
+            message: "正在下载并安装 Tesseract，可能需要几分钟...".to_string(),
             done: false,
             success: false,
             error: None,
         });
 
-        let output = Command::new("winget")
+        // 使用 spawn 启动安装进程，不阻塞等待
+        // 让用户可以看到安装界面并交互
+        let result = Command::new("winget")
             .args([
                 "install",
                 "--id",
@@ -671,43 +673,58 @@ where
                 "--accept-source-agreements",
                 "--accept-package-agreements",
             ])
-            .output()
-            .map_err(|e| format!("执行 winget 失败: {}", e))?;
+            .spawn();
 
-        if output.status.success() {
-            progress_callback(TesseractInstallProgress {
-                stage: "complete".to_string(),
-                message: "Tesseract 安装成功！请重启应用。".to_string(),
-                done: true,
-                success: true,
-                error: None,
-            });
-            return Ok(());
+        match result {
+            Ok(_child) => {
+                progress_callback(TesseractInstallProgress {
+                    stage: "installing".to_string(),
+                    message:
+                        "Tesseract 安装程序已启动，请按照安装向导完成安装。安装完成后点击刷新按钮。"
+                            .to_string(),
+                    done: true,
+                    success: true,
+                    error: None,
+                });
+                return Ok(());
+            }
+            Err(e) => {
+                let error_msg = format!("启动安装程序失败: {}", e);
+                progress_callback(TesseractInstallProgress {
+                    stage: "error".to_string(),
+                    message: error_msg.clone(),
+                    done: true,
+                    success: false,
+                    error: Some(error_msg.clone()),
+                });
+                return Err(error_msg);
+            }
         }
     }
 
-    // winget 不可用或安装失败，提示手动下载
-    progress_callback(TesseractInstallProgress {
-        stage: "manual".to_string(),
-        message: "请从 UB-Mannheim 下载安装包".to_string(),
-        done: true,
-        success: false,
-        error: Some("需要手动下载安装".to_string()),
-    });
+    // winget 不可用，提示手动下载
+    let download_url = "https://github.com/UB-Mannheim/tesseract/wiki";
 
     // 尝试打开下载页面
     #[cfg(target_os = "windows")]
     {
         let _ = Command::new("cmd")
-            .args([
-                "/c",
-                "start",
-                "https://github.com/UB-Mannheim/tesseract/wiki",
-            ])
+            .args(["/c", "start", download_url])
             .spawn();
     }
 
-    Err("需要手动下载安装 Tesseract".to_string())
+    progress_callback(TesseractInstallProgress {
+        stage: "manual".to_string(),
+        message: format!(
+            "已打开下载页面，请下载安装后点击刷新按钮。\n下载地址: {}",
+            download_url
+        ),
+        done: true,
+        success: false,
+        error: Some("MANUAL_DOWNLOAD".to_string()),
+    });
+
+    Err("MANUAL_DOWNLOAD".to_string())
 }
 
 /// 计算 tessdata 目录的简单 hash（用于审计）

@@ -11,20 +11,10 @@ import {
   AlertCircle,
   ScanText,
 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/shared/Logo"
-import {
-  ThemeSwitcher,
-  LanguageSwitcher,
-  useUpdater,
-  useConfig,
-} from "@linch-tech/desktop-core"
+import { ThemeSwitcher, LanguageSwitcher, useUpdater, useConfig } from "@linch-tech/desktop-core"
 import { useOcrStore } from "@/stores/useOcrStore"
 import { cn } from "@/lib/utils"
 
@@ -39,12 +29,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { t } = useTranslation()
   const config = useConfig()
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
-  const { status, updateInfo, progress, error, check, download, install } =
-    useUpdater({ enabled: config.features?.updater !== false })
+  const { status, updateInfo, progress, error, check, download, install } = useUpdater({
+    enabled: config.features?.updater !== false,
+  })
   const engineStatus = useOcrStore((s) => s.engineStatus)
   const currentEngine = useOcrStore((s) => s.currentEngine)
   const setCurrentEngine = useOcrStore((s) => s.setCurrentEngine)
   const openOcrDialog = useOcrStore((s) => s.openDialog)
+  const loadStatus = useOcrStore((s) => s.loadStatus)
+  const isLoading = useOcrStore((s) => s.isLoading)
 
   const handleCheckUpdate = async () => {
     try {
@@ -121,11 +114,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               {t("settings.about.up_to_date")}
             </div>
-            <Button
-              variant="outline"
-              onClick={handleCheckUpdate}
-              className="w-56"
-            >
+            <Button variant="outline" onClick={handleCheckUpdate} className="w-56">
               {t("settings.about.check_updates")}
             </Button>
           </div>
@@ -141,9 +130,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </div>
             <Button
               variant="outline"
-              onClick={
-                status === "check-error" ? handleCheckUpdate : handleDownload
-              }
+              onClick={status === "check-error" ? handleCheckUpdate : handleDownload}
               className="w-56"
             >
               {t("settings.about.retry")}
@@ -240,7 +227,17 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             {activeTab === "ocr" && (
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <h3 className="text-sm font-medium">选择 OCR 引擎</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium">选择 OCR 引擎</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => loadStatus()}
+                      disabled={isLoading}
+                    >
+                      <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     OCR 引擎用于识别图片格式 PDF 中的文字
                   </p>
@@ -335,9 +332,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   <h2 className="text-2xl font-bold">{t(config.brand.name)}</h2>
                   <p className="text-muted-foreground">
                     {t("settings.about.current_version")}:{" "}
-                    <span className="font-mono text-foreground">
-                      {config.brand.version}
-                    </span>
+                    <span className="font-mono text-foreground">{config.brand.version}</span>
                   </p>
                 </div>
 
