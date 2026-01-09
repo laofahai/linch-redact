@@ -1,5 +1,5 @@
 import { useSettingsStore } from "@/stores"
-import { Zap, FileText, Shield } from "lucide-react"
+import { FileText, Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { RedactionMode } from "@/types"
 
@@ -10,7 +10,6 @@ interface ModeOption {
 }
 
 const modeOptions: ModeOption[] = [
-  { value: "auto", label: "自动", icon: Zap },
   { value: "text_replace", label: "高清", icon: FileText },
   { value: "safe_render", label: "安全", icon: Shield },
 ]

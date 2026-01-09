@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Scan @linch-tech/desktop-core for Tailwind classes */
+@source "../node_modules/@linch-tech/desktop-core/dist";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {

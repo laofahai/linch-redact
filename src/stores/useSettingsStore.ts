@@ -18,7 +18,7 @@ interface SettingsStore {
 
 const defaultSettings: ProcessingSettings = {
   mode: "redact",
-  redactionMode: "auto",
+  redactionMode: "text_replace",
   cleaning: {
     documentInfo: true,
     xmpMetadata: true,

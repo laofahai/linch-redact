@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum OcrEngineType {
     /// Paddle OCR (PP-OCRv5 ONNX)
-    #[default]
     Paddle,
     /// Tesseract OCR (CLI)
+    #[default]
     Tesseract,
 }
 

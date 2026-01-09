@@ -34,7 +34,7 @@ const defaultPlatform: Platform = {
 export const useOcrStore = create<OcrStore>((set, get) => ({
   platform: defaultPlatform,
   engineStatus: null,
-  currentEngine: "paddle",
+  currentEngine: "tesseract",
   isLoading: false,
   isInstalling: false,
   dialogOpen: false,
