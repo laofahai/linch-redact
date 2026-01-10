@@ -87,7 +87,34 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Publish release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit ${{ github.ref_name }} --draft=false --repo ${{ github.repository }}
+
+      - name: Download release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p release-assets
+          gh release download ${{ github.ref_name }} --repo ${{ github.repository }} --dir release-assets
+
+      - name: Setup ossutil
+        run: |
+          curl -o ossutil64 https://gosspublic.alicdn.com/ossutil/1.7.18/ossutil-v1.7.18-linux-amd64.zip
+          unzip ossutil64
+          chmod +x ossutil-v1.7.18-linux-amd64/ossutil64
+          sudo mv ossutil-v1.7.18-linux-amd64/ossutil64 /usr/local/bin/ossutil
+          ossutil config -e oss-cn-beijing.aliyuncs.com -i ${{ secrets.OSS_ACCESS_KEY_ID }} -k ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+
+      - name: Sync to OSS
+        run: |
+          # 上传所有资产到 OSS
+          ossutil cp -r release-assets/ oss://linch-pc-base/releases/linch-redact/${{ github.ref_name }}/ -f
+          # 复制 latest.json 到根目录
+          if [ -f release-assets/latest.json ]; then
+            ossutil cp release-assets/latest.json oss://linch-pc-base/releases/linch-redact/latest.json -f
+          fi

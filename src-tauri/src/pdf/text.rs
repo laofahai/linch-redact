@@ -35,7 +35,7 @@ fn char_in_mask(
         .any(|m| m.intersects_text_bbox(char_x, char_y, char_width, char_height))
 }
 
-/// 对文字进行字符级脱敏：将落在 mask 区域内的字符替换为 *，并在脱敏区域两边加空格
+/// 对文字进行字符级脱敏：将落在 mask 区域内的字符删除（用空格替代），确保文字无法复制
 fn redact_text_chars(
     text: &[u8],
     start_x: f32,
@@ -43,31 +43,21 @@ fn redact_text_chars(
     font_size: f32,
     masks: &[MaskRect],
 ) -> (Vec<u8>, bool) {
-    let mut result = Vec::with_capacity(text.len() + 4);
+    let mut result = Vec::with_capacity(text.len());
     let mut current_x = start_x;
     let mut any_redacted = false;
-    let mut in_redacted_region = false;
 
-    for (i, &byte) in text.iter().enumerate() {
+    for &byte in text.iter() {
         let char_width = estimate_char_width(byte, font_size);
         let is_in_mask = char_in_mask(current_x, start_y, char_width, font_size, masks);
 
         if is_in_mask {
-            if !in_redacted_region {
-                if i > 0 && result.last() != Some(&b' ') {
-                    result.push(b' ');
-                }
-                in_redacted_region = true;
-            }
-            result.push(b'*');
+            // 用空格替代被脱敏的字符，这样可以：
+            // 1. 保持文字流的位置不变（避免后续字符位置偏移）
+            // 2. 确保文字无法被复制（空格没有实际内容）
+            result.push(b' ');
             any_redacted = true;
         } else {
-            if in_redacted_region {
-                if byte != b' ' {
-                    result.push(b' ');
-                }
-                in_redacted_region = false;
-            }
             result.push(byte);
         }
 
@@ -77,7 +67,7 @@ fn redact_text_chars(
     (result, any_redacted)
 }
 
-/// 处理内容流，将 mask 区域内的文字替换为 *
+/// 处理内容流，将 mask 区域内的文字替换为空格
 pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result<Vec<u8>, String> {
     let content = Content::decode(content_data).map_err(|e| e.to_string())?;
     let mut new_operations: Vec<Operation> = Vec::new();
@@ -326,10 +316,35 @@ pub fn add_black_overlay(content_data: &[u8], masks: &[MaskRect]) -> Result<Vec<
     let content = Content::decode(content_data).map_err(|e| e.to_string())?;
     let mut new_operations = content.operations;
 
+    // 保存当前图形状态
     new_operations.push(Operation::new("q", vec![]));
-    new_operations.push(Operation::new("rg", vec![0.into(), 0.into(), 0.into()]));
+
+    // 重置 CTM 为单位矩阵，确保黑框在正确的页面坐标位置
+    // 注意：如果内容流中有 cm 操作修改了 CTM，这里需要重置
+    // 使用 cm 设置单位矩阵: [1 0 0 1 0 0]
+    // 但更安全的做法是不重置 CTM，因为有些 PDF 的坐标系可能依赖于 CTM
+
+    // 设置填充颜色为黑色 (RGB: 0, 0, 0)
+    new_operations.push(Operation::new(
+        "rg",
+        vec![Object::Real(0.0), Object::Real(0.0), Object::Real(0.0)],
+    ));
+
+    // 设置描边颜色也为黑色（以防某些 PDF 阅读器行为不一致）
+    new_operations.push(Operation::new(
+        "RG",
+        vec![Object::Real(0.0), Object::Real(0.0), Object::Real(0.0)],
+    ));
 
     for rect in masks {
+        log::info!(
+            "[BlackOverlay] 绘制黑框: x={}, y={}, w={}, h={}",
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height
+        );
+        // 绘制矩形路径
         new_operations.push(Operation::new(
             "re",
             vec![
@@ -339,9 +354,11 @@ pub fn add_black_overlay(content_data: &[u8], masks: &[MaskRect]) -> Result<Vec<
                 Object::Real(rect.height),
             ],
         ));
+        // 填充路径（使用非零绕组规则）
         new_operations.push(Operation::new("f", vec![]));
     }
 
+    // 恢复图形状态
     new_operations.push(Operation::new("Q", vec![]));
 
     let new_content = Content {

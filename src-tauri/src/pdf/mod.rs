@@ -24,7 +24,8 @@ use detection::{analyze_pdf_file, detect_sensitive_content_in_pdf};
 use image::redact_page_images;
 use text::{add_black_overlay, process_content_stream};
 use utils::{
-    convert_masks_to_pdf_coords, detect_page_content_type, get_media_box, get_page_content,
+    convert_masks_to_pdf_coords_with_rotation, detect_page_content_type,
+    get_media_box_with_rotation, get_page_content,
 };
 
 /// 应用清理选项
@@ -81,10 +82,11 @@ fn redact_page(
     masks: &[Mask],
     mode: &RedactionMode,
 ) -> Result<(), String> {
-    let media_box = get_media_box(doc, page_id);
-    log::info!("MediaBox: {:?}", media_box);
+    let (llx, lly, urx, ury, rotation) = get_media_box_with_rotation(doc, page_id);
+    let media_box = (llx, lly, urx, ury);
+    log::info!("MediaBox: {:?}, 旋转: {}°", media_box, rotation);
     log::info!("Input masks: {:?}", masks);
-    let mask_rects = convert_masks_to_pdf_coords(masks, media_box);
+    let mask_rects = convert_masks_to_pdf_coords_with_rotation(masks, media_box, rotation);
     log::info!("Converted mask_rects: {:?}", mask_rects);
 
     let content_data = get_page_content(doc, page_id)?;

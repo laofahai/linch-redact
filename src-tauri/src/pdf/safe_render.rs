@@ -222,8 +222,10 @@ pub fn safe_redact_pdf(
                     .create_page_at_end(PdfPagePaperSize::Custom(page_width, page_height))
                     .map_err(|e| format!("创建页面失败: {}", e))?;
 
-                // 保存图片到临时文件
-                let temp_path = format!("/tmp/redact_page_{}.jpg", page_idx);
+                // 保存图片到临时文件（使用跨平台临时目录）
+                let temp_dir = std::env::temp_dir();
+                let temp_path = temp_dir.join(format!("redact_page_{}.jpg", page_idx));
+                let temp_path = temp_path.to_string_lossy().to_string();
                 redacted_image
                     .to_rgb8()
                     .save_with_format(&temp_path, image::ImageFormat::Jpeg)
@@ -292,8 +294,10 @@ fn copy_page(
 
     let image = bitmap.as_image();
 
-    // 保存到临时文件
-    let temp_path = format!("/tmp/copy_page_{}.jpg", page_idx);
+    // 保存到临时文件（使用跨平台临时目录）
+    let temp_dir = std::env::temp_dir();
+    let temp_path = temp_dir.join(format!("copy_page_{}.jpg", page_idx));
+    let temp_path = temp_path.to_string_lossy().to_string();
     image
         .to_rgb8()
         .save_with_format(&temp_path, image::ImageFormat::Jpeg)

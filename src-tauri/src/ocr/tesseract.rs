@@ -258,55 +258,113 @@ pub fn get_tesseract_langs(
 
 /// 检测 Tesseract 安装状态
 pub fn detect_tesseract_status(config: &TesseractConfig) -> TesseractStatus {
+    // 首先尝试用户配置的路径，然后尝试 PATH 中的 tesseract，最后尝试常见安装路径
     let binary_path = config.binary_path.as_deref().unwrap_or("tesseract");
 
-    // 尝试获取版本
-    match get_tesseract_version(binary_path) {
-        Ok(version) => {
-            // 获取语言列表
-            let langs = get_tesseract_langs(binary_path, config.tessdata_path.as_deref())
+    // 尝试获取版本（使用配置的路径或 PATH）
+    if let Ok(version) = get_tesseract_version(binary_path) {
+        let langs =
+            get_tesseract_langs(binary_path, config.tessdata_path.as_deref()).unwrap_or_default();
+        let actual_path = which_tesseract(binary_path);
+        let tessdata = config
+            .tessdata_path
+            .clone()
+            .or_else(|| find_tessdata_path(binary_path));
+
+        return TesseractStatus {
+            installed: true,
+            version: Some(version),
+            binary_path: actual_path,
+            tessdata_path: tessdata,
+            available_langs: langs,
+            error: None,
+        };
+    }
+
+    // 如果直接检测失败，尝试查找常见安装路径
+    if let Some(found_path) = which_tesseract("tesseract") {
+        if let Ok(version) = get_tesseract_version(&found_path) {
+            let langs = get_tesseract_langs(&found_path, config.tessdata_path.as_deref())
                 .unwrap_or_default();
-
-            // 查找实际的 binary 路径
-            let actual_path = which_tesseract(binary_path);
-
-            // 查找 tessdata 路径
             let tessdata = config
                 .tessdata_path
                 .clone()
-                .or_else(|| find_tessdata_path(binary_path));
+                .or_else(|| find_tessdata_path(&found_path));
 
-            TesseractStatus {
+            return TesseractStatus {
                 installed: true,
                 version: Some(version),
-                binary_path: actual_path,
+                binary_path: Some(found_path),
                 tessdata_path: tessdata,
                 available_langs: langs,
                 error: None,
-            }
+            };
         }
-        Err(e) => TesseractStatus {
-            installed: false,
-            version: None,
-            binary_path: None,
-            tessdata_path: None,
-            available_langs: Vec::new(),
-            error: Some(e),
-        },
+    }
+
+    TesseractStatus {
+        installed: false,
+        version: None,
+        binary_path: None,
+        tessdata_path: None,
+        available_langs: Vec::new(),
+        error: Some("无法检测到 Tesseract，请确认已安装并正确配置".to_string()),
     }
 }
 
 /// 查找 tesseract 可执行文件的完整路径
 fn which_tesseract(binary: &str) -> Option<String> {
     #[cfg(target_os = "windows")]
-    let cmd = Command::new("where").arg(binary).output();
-    #[cfg(not(target_os = "windows"))]
-    let cmd = Command::new("which").arg(binary).output();
+    {
+        // 首先尝试 where 命令
+        let cmd = Command::new("where").arg(binary).output();
+        if let Some(path) = cmd
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string()
+            })
+            .filter(|s| !s.is_empty())
+        {
+            return Some(path);
+        }
 
-    cmd.ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .filter(|s| !s.is_empty())
+        // 如果 where 找不到，检查常见安装路径
+        let common_paths = [
+            "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+            "C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe",
+        ];
+
+        for path in common_paths {
+            if Path::new(path).exists() {
+                return Some(path.to_string());
+            }
+        }
+
+        // 尝试通过环境变量
+        if let Ok(program_files) = std::env::var("ProgramFiles") {
+            let path = format!("{}\\Tesseract-OCR\\tesseract.exe", program_files);
+            if Path::new(&path).exists() {
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let cmd = Command::new("which").arg(binary).output();
+        cmd.ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .filter(|s| !s.is_empty())
+    }
 }
 
 /// 查找 tessdata 路径
@@ -338,17 +396,42 @@ fn find_tessdata_path(binary_path: &str) -> Option<String> {
     }
 
     // 常见默认路径
-    let common_paths = [
-        "/usr/share/tesseract-ocr/5/tessdata",
-        "/usr/share/tesseract-ocr/4.00/tessdata",
-        "/usr/share/tessdata",
-        "/usr/local/share/tessdata",
-        "/opt/homebrew/share/tessdata",
+    #[cfg(target_os = "windows")]
+    let common_paths: Vec<std::path::PathBuf> = {
+        let mut paths = Vec::new();
+        // Windows 常见安装路径
+        if let Ok(program_files) = std::env::var("ProgramFiles") {
+            paths.push(
+                Path::new(&program_files)
+                    .join("Tesseract-OCR")
+                    .join("tessdata"),
+            );
+        }
+        if let Ok(program_files_x86) = std::env::var("ProgramFiles(x86)") {
+            paths.push(
+                Path::new(&program_files_x86)
+                    .join("Tesseract-OCR")
+                    .join("tessdata"),
+            );
+        }
+        // 硬编码备用路径
+        paths.push(Path::new("C:\\Program Files\\Tesseract-OCR\\tessdata").to_path_buf());
+        paths.push(Path::new("C:\\Program Files (x86)\\Tesseract-OCR\\tessdata").to_path_buf());
+        paths
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let common_paths: Vec<std::path::PathBuf> = vec![
+        Path::new("/usr/share/tesseract-ocr/5/tessdata").to_path_buf(),
+        Path::new("/usr/share/tesseract-ocr/4.00/tessdata").to_path_buf(),
+        Path::new("/usr/share/tessdata").to_path_buf(),
+        Path::new("/usr/local/share/tessdata").to_path_buf(),
+        Path::new("/opt/homebrew/share/tessdata").to_path_buf(),
     ];
 
     for path in common_paths {
-        if Path::new(path).exists() {
-            return Some(path.to_string());
+        if path.exists() {
+            return path.to_string_lossy().to_string().into();
         }
     }
 
