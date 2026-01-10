@@ -79,6 +79,7 @@ jobs:
           releaseBody: "See the assets below for download links."
           releaseDraft: true
           prerelease: false
+          includeUpdaterJson: true
           args: --target ${{ matrix.target }}
 
   publish:
