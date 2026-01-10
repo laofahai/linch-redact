@@ -1,6 +1,6 @@
 [package]
 name = "linch-redact"
-version = "0.1.2"
+version = "0.1.3"
 description = "Linch Redact - PDF Sensitive Content Redaction Tool"
 authors = ["Linch Tech"]
 edition = "2021"
