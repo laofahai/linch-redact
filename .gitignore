@@ -26,3 +26,8 @@ npm-debug.log*
 
 # Test
 coverage/
+
+# Dynamic libraries (downloaded by setup-pdfium.sh)
+src-tauri/libs/*.so
+src-tauri/libs/*.dylib
+src-tauri/libs/*.dll

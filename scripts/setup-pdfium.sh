@@ -17,15 +17,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 LIBS_DIR="$PROJECT_ROOT/src-tauri/libs"
 
-# 检查是否已安装（检查 libpdfium.so/dylib/dll 是否存在）
-if [ -f "$LIBS_DIR/libpdfium.so" ] || [ -f "$LIBS_DIR/libpdfium.dylib" ] || [ -f "$LIBS_DIR/pdfium.dll" ]; then
-    echo "Pdfium already installed at $LIBS_DIR"
-    exit 0
-fi
-
-# 使用 bblanchon/pdfium-binaries 的最新版本
-PDFIUM_BASE_URL="https://github.com/bblanchon/pdfium-binaries/releases/latest/download"
-
 # 检测平台和架构
 detect_platform() {
     local os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -56,6 +47,27 @@ detect_platform() {
 }
 
 PLATFORM=$(detect_platform)
+
+# 根据平台确定库文件名
+get_library_name() {
+    case "$PLATFORM" in
+        linux-*) echo "libpdfium.so" ;;
+        mac-*) echo "libpdfium.dylib" ;;
+        win-*) echo "pdfium.dll" ;;
+        *) echo "" ;;
+    esac
+}
+
+LIBRARY_NAME=$(get_library_name)
+
+# 只检查当前平台对应的库文件是否存在
+if [ -n "$LIBRARY_NAME" ] && [ -f "$LIBS_DIR/$LIBRARY_NAME" ]; then
+    echo "Pdfium ($LIBRARY_NAME) already installed at $LIBS_DIR"
+    exit 0
+fi
+
+# 使用 bblanchon/pdfium-binaries 的最新版本
+PDFIUM_BASE_URL="https://github.com/bblanchon/pdfium-binaries/releases/latest/download"
 
 if [ "$PLATFORM" = "unsupported" ]; then
     echo "Error: Unsupported platform"
