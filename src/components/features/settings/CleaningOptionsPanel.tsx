@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, Settings2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useSettingsStore } from "@/stores"
@@ -27,12 +27,13 @@ export function CleaningOptionsPanel() {
         onClick={() => setExpanded(!expanded)}
       >
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-          {expanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
+          <Settings2 className="h-3 w-3" />
           高级选项
+          {expanded ? (
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          )}
         </h3>
         {enabledCount > 0 && (
           <span className="text-xs text-muted-foreground">{enabledCount} 项</span>
@@ -40,16 +41,16 @@ export function CleaningOptionsPanel() {
       </div>
 
       {expanded && (
-        <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 pl-1">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-2 pl-1">
           {cleaningOptions.map((option) => (
-            <div key={option.key} className="flex items-center gap-1.5">
+            <div key={option.key} className="flex items-center gap-2">
               <Checkbox
                 id={option.key}
                 checked={settings.cleaning[option.key]}
                 onCheckedChange={() => toggleCleaning(option.key)}
-                className="h-3.5 w-3.5"
+                className="h-4 w-4"
               />
-              <Label htmlFor={option.key} className="text-xs font-normal cursor-pointer">
+              <Label htmlFor={option.key} className="text-sm font-normal cursor-pointer">
                 {option.label}
               </Label>
             </div>

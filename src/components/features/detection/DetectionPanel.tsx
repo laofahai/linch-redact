@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { nanoid } from "nanoid"
 import { invoke } from "@tauri-apps/api/core"
 import {
@@ -76,6 +76,14 @@ export function DetectionPanel() {
   const [_hasImagePages, setHasImagePages] = useState(false)
   const [needsOcr, setNeedsOcr] = useState(false)
   const [scanScope, setScanScope] = useState<"current" | "all">("all")
+
+  // 切换文件时清空检测结果
+  useEffect(() => {
+    setHits([])
+    setAddedHits(new Set())
+    setNeedsOcr(false)
+    setHasImagePages(false)
+  }, [selectedFile?.id])
 
   const runDetection = async () => {
     if (!selectedFile?.path) return
@@ -268,8 +276,8 @@ export function DetectionPanel() {
 
           {needsOcr && (
             <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-2 space-y-2">
-              <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>检测到图片页，需要 OCR 支持。请先安装/配置 OCR。</span>
               </div>
               <Button
@@ -286,27 +294,27 @@ export function DetectionPanel() {
           {hits.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   当前页: {currentPageHits.length} 条 / 共 {hits.length} 条
                 </p>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-2 text-xs"
+                  className="h-7 px-2 text-sm"
                   onClick={addAllHitsAsMasks}
                 >
-                  <Plus className="h-3 w-3 mr-1" />
+                  <Plus className="h-4 w-4 mr-1" />
                   全部添加
                 </Button>
               </div>
 
-              <div className="space-y-1 max-h-32 overflow-y-auto">
+              <div className="space-y-1 max-h-40 overflow-y-auto">
                 {currentPageHits.map(({ hit, originalIndex }) => {
                   const isAdded = addedHits.has(originalIndex)
                   return (
                     <div
                       key={originalIndex}
-                      className={`flex items-center justify-between rounded-md px-2 py-1 text-xs ${
+                      className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
                         isAdded ? "bg-green-50 dark:bg-green-950/30" : "bg-muted/50"
                       }`}
                     >
@@ -315,24 +323,24 @@ export function DetectionPanel() {
                         <span className="text-muted-foreground ml-1.5">{hit.snippet}</span>
                       </div>
                       {isAdded ? (
-                        <div className="h-5 w-5 shrink-0 flex items-center justify-center text-green-600">
-                          <Check className="h-3 w-3" />
+                        <div className="h-6 w-6 shrink-0 flex items-center justify-center text-green-600">
+                          <Check className="h-4 w-4" />
                         </div>
                       ) : (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-5 w-5 shrink-0"
+                          className="h-6 w-6 shrink-0"
                           onClick={() => addHitAsMask(hit, originalIndex)}
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
                   )
                 })}
                 {currentPageHits.length === 0 && hits.length > 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">当前页无命中</p>
+                  <p className="text-sm text-muted-foreground text-center py-2">当前页无命中</p>
                 )}
               </div>
             </div>

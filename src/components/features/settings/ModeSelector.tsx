@@ -1,5 +1,5 @@
 import { useSettingsStore } from "@/stores"
-import { FileText, Shield } from "lucide-react"
+import { FileText, Shield, Wand2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { RedactionMode } from "@/types"
 
@@ -10,7 +10,7 @@ interface ModeOption {
 }
 
 const modeOptions: ModeOption[] = [
-  { value: "text_replace", label: "文字替换", icon: FileText },
+  { value: "text_replace", label: "高清模式", icon: FileText },
   { value: "safe_render", label: "安全渲染", icon: Shield },
 ]
 
@@ -20,7 +20,8 @@ export function ModeSelector() {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+        <Wand2 className="h-3 w-3" />
         脱敏模式
       </h3>
       <div className="flex gap-1">
@@ -31,14 +32,14 @@ export function ModeSelector() {
             <button
               key={option.value}
               className={cn(
-                "flex-1 flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors",
+                "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
                 isSelected
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
               onClick={() => setRedactionMode(option.value)}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-4 w-4" />
               {option.label}
             </button>
           )
