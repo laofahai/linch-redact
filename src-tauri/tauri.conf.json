@@ -47,7 +47,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA0ODVCOUE4NUI2QjEzNDEKUldSQkUydGJxTG1GQkZycGRBTjRjaDVQbG10SWVrQkNLMkM1dHVEdHZyOXdMeXI1eUNvbHZQSFIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlDQzUwOUZEMDUyMDc4QkYKUldTL2VDQUYvUW5GblB3VnZocEpTckVHNUxpTXd6SHRmTE03MXNwQU42M0NMcHJDZWV1N3c1WHAK",
       "endpoints": [
         "https://linch-pc-base.oss-cn-beijing.aliyuncs.com/releases/linch-redact/latest.json",
         "https://github.com/laofahai/linch-redact/releases/latest/download/latest.json"
