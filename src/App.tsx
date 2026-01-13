@@ -7,6 +7,7 @@ import { config } from "./config"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { MainPanel } from "@/components/layout/MainPanel"
 import { Footer } from "@/components/layout/Footer"
+import { RightPanel } from "@/components/layout/RightPanel"
 import { OcrSetupDialog } from "@/components/features/ocr/OcrSetupDialog"
 import { SettingsDialog } from "@/components/features/settings/SettingsDialog"
 import { useOcrStore } from "@/stores/useOcrStore"
@@ -63,7 +64,10 @@ function AppContent() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <div className="flex flex-1 flex-col overflow-hidden">
-          <MainPanel />
+          <div className="flex flex-1 overflow-hidden">
+            <MainPanel />
+            <RightPanel />
+          </div>
           <Footer />
         </div>
       </div>

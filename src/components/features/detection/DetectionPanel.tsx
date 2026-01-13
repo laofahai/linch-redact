@@ -26,40 +26,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { useFileStore, useEditorStore, useOcrStore } from "@/stores"
+import { useDetectionRulesStore, useFileStore, useEditorStore, useOcrStore } from "@/stores"
 import type { Rule, DetectionHit, Mask, PdfAnalysis } from "@/types"
-
-// 内置规则
-const builtinRules: Rule[] = [
-  {
-    id: "id_card_cn",
-    name: "中国身份证号",
-    ruleType: "regex",
-    pattern: "\\d{17}[\\dXx]",
-    enabled: true,
-  },
-  {
-    id: "phone_cn",
-    name: "手机号码",
-    ruleType: "regex",
-    pattern: "1[3-9]\\d{9}",
-    enabled: true,
-  },
-  {
-    id: "email",
-    name: "电子邮箱",
-    ruleType: "regex",
-    pattern: "[\\w.+-]+@[\\w.-]+\\.\\w{2,}",
-    enabled: false,
-  },
-  {
-    id: "bank_card",
-    name: "银行卡号",
-    ruleType: "regex",
-    pattern: "\\d{16,19}",
-    enabled: false,
-  },
-]
 
 const ruleIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   id_card_cn: User,
@@ -68,17 +36,15 @@ const ruleIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   bank_card: CreditCard,
 }
 
-// 分析 PDF 获取页面类型
 async function analyzePdf(path: string): Promise<PdfAnalysis> {
   return await invoke<PdfAnalysis>("analyze_pdf", { pdfPath: path })
 }
 
-// 调用 Tauri 命令检测敏感内容
 async function detectSensitiveContent(
   path: string,
   rules: Rule[],
   useOcr: boolean = false,
-  pageIndices?: number[]  // 可选：指定要扫描的页面索引
+  pageIndices?: number[]
 ): Promise<DetectionHit[]> {
   return await invoke<DetectionHit[]>("detect_sensitive_content", {
     pdfPath: path,
@@ -96,32 +62,27 @@ export function DetectionPanel() {
   const currentEngine = useOcrStore((s) => s.currentEngine)
   const openOcrDialog = useOcrStore((s) => s.openDialog)
 
-  // 判断当前引擎是否可用
-  const ocrReady = currentEngine === "paddle"
-    ? engineStatus?.paddle.installed ?? false
-    : engineStatus?.tesseract.installed ?? false
+  const ocrReady =
+    currentEngine === "paddle"
+      ? (engineStatus?.paddle.installed ?? false)
+      : (engineStatus?.tesseract.installed ?? false)
 
-  const [rules, setRules] = useState<Rule[]>(builtinRules)
+  const rules = useDetectionRulesStore((s) => s.rules)
+  const toggleRule = useDetectionRulesStore((s) => s.toggleRule)
   const [hits, setHits] = useState<DetectionHit[]>([])
-  const [addedHits, setAddedHits] = useState<Set<number>>(new Set()) // 记录已添加的 hit 索引
+  const [addedHits, setAddedHits] = useState<Set<number>>(new Set())
   const [scanning, setScanning] = useState(false)
   const [expanded, setExpanded] = useState(true)
   const [_hasImagePages, setHasImagePages] = useState(false)
   const [needsOcr, setNeedsOcr] = useState(false)
-  const [scanScope, setScanScope] = useState<"current" | "all">("all") // 扫描范围
-
-  const toggleRule = (ruleId: string) => {
-    setRules((prev) =>
-      prev.map((r) => (r.id === ruleId ? { ...r, enabled: !r.enabled } : r))
-    )
-  }
+  const [scanScope, setScanScope] = useState<"current" | "all">("all")
 
   const runDetection = async () => {
     if (!selectedFile?.path) return
 
     const enabledRules = rules.filter((r) => r.enabled)
     if (enabledRules.length === 0) {
-      toast.warning("请至少启用一个检测规则")
+      toast.warning("请至少选择一个检测规则")
       return
     }
 
@@ -131,32 +92,33 @@ export function DetectionPanel() {
     setNeedsOcr(false)
 
     try {
-      // 先分析 PDF 获取页面类型
       const analysis = await analyzePdf(selectedFile.path)
-      const imagePageCount = analysis.pageTypes.filter(t => t === "image_based").length
+      const imagePageCount = analysis.pageTypes.filter((t) => t === "image_based").length
       setHasImagePages(imagePageCount > 0)
 
-      // 如果有图片页且 OCR 未安装，提示用户
       if (imagePageCount > 0 && !ocrReady) {
         setNeedsOcr(true)
         setScanning(false)
-        toast.warning(`检测到 ${imagePageCount} 个图片页面，需要安装 OCR 组件才能识别其中的文字`, {
+        toast.warning(`检测到 ${imagePageCount} 页为图片，需 OCR 才能识别。请先安装/配置 OCR。`, {
           duration: 5000,
         })
         return
       }
 
-      // 执行检测（如果有图片页且 OCR 已安装，使用 OCR）
       const useOcr = imagePageCount > 0 && ocrReady
-      // 根据扫描范围确定页面索引
       const pageIndices = scanScope === "current" ? [currentPage] : undefined
-      const results = await detectSensitiveContent(selectedFile.path, enabledRules, useOcr, pageIndices)
+      const results = await detectSensitiveContent(
+        selectedFile.path,
+        enabledRules,
+        useOcr,
+        pageIndices
+      )
       setHits(results)
 
       if (results.length === 0) {
-        toast.info("未检测到敏感信息")
+        toast.info("未发现敏感信息")
       } else {
-        toast.success(`检测到 ${results.length} 处敏感信息`)
+        toast.success(`发现 ${results.length} 处敏感信息`)
       }
     } catch (e) {
       console.error("Detection failed:", e)
@@ -167,7 +129,7 @@ export function DetectionPanel() {
   }
 
   const addHitAsMask = (hit: DetectionHit, hitIndex: number) => {
-    if (addedHits.has(hitIndex)) return // 已添加过
+    if (addedHits.has(hitIndex)) return
 
     const mask: Mask = {
       id: nanoid(),
@@ -177,15 +139,15 @@ export function DetectionPanel() {
       height: hit.bbox.height,
     }
     addMask(hit.page, mask)
-    setAddedHits(prev => new Set(prev).add(hitIndex))
-    toast.success("已添加遮盖框")
+    setAddedHits((prev) => new Set(prev).add(hitIndex))
+    toast.success("已添加遮罩")
   }
 
   const addAllHitsAsMasks = () => {
     let added = 0
     const newAdded = new Set(addedHits)
     hits.forEach((hit, idx) => {
-      if (newAdded.has(idx)) return // 已添加过
+      if (newAdded.has(idx)) return
       const mask: Mask = {
         id: nanoid(),
         x: hit.bbox.x,
@@ -199,7 +161,7 @@ export function DetectionPanel() {
     })
     setAddedHits(newAdded)
     if (added > 0) {
-      toast.success(`已添加 ${added} 个遮盖框`)
+      toast.success(`已批量添加 ${added} 处遮罩`)
     }
   }
 
@@ -207,7 +169,6 @@ export function DetectionPanel() {
     return null
   }
 
-  // 当前页面的检测结果（保留原始索引）
   const currentPageHits = hits
     .map((hit, idx) => ({ hit, originalIndex: idx }))
     .filter(({ hit }) => hit.page === currentPage)
@@ -227,11 +188,13 @@ export function DetectionPanel() {
         <button
           onClick={openOcrDialog}
           className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-muted hover:bg-muted/80 transition-colors"
-          title="点击切换 OCR 引擎"
+          title="配置 OCR"
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${ocrReady ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${ocrReady ? "bg-green-500" : "bg-red-500"}`}
+          />
           <span className="text-muted-foreground">
-            {currentEngine === 'paddle' ? 'Paddle' : 'Tesseract'}
+            {currentEngine === "paddle" ? "Paddle" : "Tesseract"}
           </span>
           <Settings className="h-2.5 w-2.5 text-muted-foreground" />
         </button>
@@ -244,7 +207,6 @@ export function DetectionPanel() {
 
       {expanded && (
         <>
-          {/* 规则标签 */}
           <div className="flex flex-wrap gap-1.5">
             {rules.map((rule) => {
               const Icon = ruleIcons[rule.id] || Search
@@ -267,7 +229,6 @@ export function DetectionPanel() {
             })}
           </div>
 
-          {/* 扫描按钮和范围选项 */}
           <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
@@ -298,19 +259,18 @@ export function DetectionPanel() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setScanScope("all")}>
                   <Files className="h-3.5 w-3.5 mr-2" />
-                  全部页面
+                  全部页
                   {scanScope === "all" && <Check className="h-3 w-3 ml-auto" />}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
-          {/* OCR 安装提示 */}
           {needsOcr && (
             <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-2 space-y-2">
               <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>检测到图片页面，需要 OCR 组件识别文字</span>
+                <span>检测到图片页，需要 OCR 支持。请先安装/配置 OCR。</span>
               </div>
               <Button
                 variant="outline"
@@ -318,17 +278,16 @@ export function DetectionPanel() {
                 className="w-full h-7 text-xs"
                 onClick={openOcrDialog}
               >
-                安装 OCR 组件
+                配置 OCR
               </Button>
             </div>
           )}
 
-          {/* 检测结果 */}
           {hits.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  当前页: {currentPageHits.length} 处 / 共 {hits.length} 处
+                  当前页: {currentPageHits.length} 条 / 共 {hits.length} 条
                 </p>
                 <Button
                   variant="ghost"
@@ -353,9 +312,7 @@ export function DetectionPanel() {
                     >
                       <div className="flex-1 truncate">
                         <span className="font-medium">{hit.ruleName}</span>
-                        <span className="text-muted-foreground ml-1.5">
-                          {hit.snippet}
-                        </span>
+                        <span className="text-muted-foreground ml-1.5">{hit.snippet}</span>
                       </div>
                       {isAdded ? (
                         <div className="h-5 w-5 shrink-0 flex items-center justify-center text-green-600">
@@ -375,9 +332,7 @@ export function DetectionPanel() {
                   )
                 })}
                 {currentPageHits.length === 0 && hits.length > 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    当前页无检测结果
-                  </p>
+                  <p className="text-xs text-muted-foreground text-center py-2">当前页无命中</p>
                 )}
               </div>
             </div>

@@ -256,10 +256,27 @@ fn process_pdf_file(
 
     doc.compress();
 
-    let mut file = fs::File::create(&output_path).map_err(|e| format!("创建文件失败: {}", e))?;
-    doc.save_to(&mut file)
-        .map_err(|e| format!("保存失败: {}", e))?;
+    log::info!("正在保存文件到: {}", output_path.display());
+    let mut file = fs::File::create(&output_path).map_err(|e| {
+        let err_msg = e.to_string();
+        log::error!("创建文件失败: {} - {}", output_path.display(), err_msg);
+        if err_msg.contains("denied") || err_msg.contains("being used") || err_msg.contains("拒绝")
+        {
+            format!(
+                "文件被占用，请关闭正在使用该文件的程序后重试: {}",
+                output_path.display()
+            )
+        } else {
+            format!("创建文件失败: {} - {}", output_path.display(), err_msg)
+        }
+    })?;
 
+    doc.save_to(&mut file).map_err(|e| {
+        log::error!("保存 PDF 失败: {}", e);
+        format!("保存 PDF 失败: {}", e)
+    })?;
+
+    log::info!("文件保存成功: {}", output_path.display());
     Ok(output_path.to_string_lossy().to_string())
 }
 

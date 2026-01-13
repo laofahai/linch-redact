@@ -13,6 +13,7 @@
     "type-check": "tsc --noEmit",
     "release": "release-it",
     "tauri:dev": "tauri dev",
+    "tauri:dev:clean": "node ./scripts/kill-port.mjs 1501 && tauri dev",
     "tauri:build": "tauri build",
     "prepare": "husky"
   },

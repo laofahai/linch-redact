@@ -1082,6 +1082,7 @@ FPDF_EXPORT FPDF_BITMAP FPDF_CALLCONV FPDFBitmap_Create(int width,
 
 // More DIB formats
 // Unknown or unsupported format.
+// All of the colors are listed in order of LSB to MSB.
 #define FPDFBitmap_Unknown 0
 // Gray scale bitmap, one byte per pixel.
 #define FPDFBitmap_Gray 1

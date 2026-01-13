@@ -184,3 +184,7 @@ html {
     @apply bg-background text-foreground;
   }
 }
+.file-list-scroll [data-radix-scroll-area-viewport] > div {
+  display: block !important;
+  min-width: 0 !important;
+}

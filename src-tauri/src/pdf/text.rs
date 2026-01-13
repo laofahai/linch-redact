@@ -35,42 +35,88 @@ fn char_in_mask(
         .any(|m| m.intersects_text_bbox(char_x, char_y, char_width, char_height))
 }
 
-/// 对文字进行字符级脱敏：将落在 mask 区域内的字符删除（用空格替代），确保文字无法复制
-fn redact_text_chars(
+/// 对文字进行脱敏：将落在 mask 区域内的字符替换为空白 glyph (0x00)
+/// 保持字节数不变，确保文字位置推进正确
+/// 返回 (处理后的字节, 是否有脱敏)
+fn redact_text_bytes(
     text: &[u8],
     start_x: f32,
     start_y: f32,
     font_size: f32,
     masks: &[MaskRect],
 ) -> (Vec<u8>, bool) {
-    let mut result = Vec::with_capacity(text.len());
     let mut current_x = start_x;
-    let mut any_redacted = false;
+    let mut any_in_mask = false;
 
+    // 先检查是否有任何字符在 mask 区域内
     for &byte in text.iter() {
         let char_width = estimate_char_width(byte, font_size);
-        let is_in_mask = char_in_mask(current_x, start_y, char_width, font_size, masks);
-
-        if is_in_mask {
-            // 用空格替代被脱敏的字符，这样可以：
-            // 1. 保持文字流的位置不变（避免后续字符位置偏移）
-            // 2. 确保文字无法被复制（空格没有实际内容）
-            result.push(b' ');
-            any_redacted = true;
-        } else {
-            result.push(byte);
+        if char_in_mask(current_x, start_y, char_width, font_size, masks) {
+            any_in_mask = true;
+            break;
         }
-
         current_x += char_width;
     }
 
-    (result, any_redacted)
+    if any_in_mask {
+        // 将所有字节替换为 0x00（空白 glyph）
+        // 保持字节数不变，确保位置推进正确
+        let redacted = vec![0u8; text.len()];
+        (redacted, true)
+    } else {
+        (text.to_vec(), false)
+    }
 }
 
 /// 处理内容流，将 mask 区域内的文字替换为空格
 pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result<Vec<u8>, String> {
     let content = Content::decode(content_data).map_err(|e| e.to_string())?;
     let mut new_operations: Vec<Operation> = Vec::new();
+
+    // 统计操作符
+    let mut tj_count = 0;
+    let mut big_tj_count = 0;
+    for op in &content.operations {
+        match op.operator.as_str() {
+            "Tj" => tj_count += 1,
+            "TJ" => big_tj_count += 1,
+            _ => {}
+        }
+    }
+    log::info!(
+        "[TextReplace] 内容流统计: {} 个操作符, Tj={}, TJ={}, masks={:?}",
+        content.operations.len(),
+        tj_count,
+        big_tj_count,
+        masks
+    );
+
+    // 打印前 5 个 Tj 操作的内容（调试）
+    let mut tj_samples = 0;
+    for op in &content.operations {
+        if op.operator == "Tj" && tj_samples < 5 {
+            if let Some(Object::String(s, _)) = op.operands.first() {
+                log::info!(
+                    "[TextReplace] Tj 样本 {}: 字节={:?}, 文字={:?}",
+                    tj_samples,
+                    &s[..s.len().min(20)],
+                    String::from_utf8_lossy(&s[..s.len().min(20)])
+                );
+            }
+            tj_samples += 1;
+        }
+    }
+
+    // 打印 mask 区域信息
+    if let Some(m) = masks.first() {
+        log::info!(
+            "[TextReplace] Mask 区域: x=[{:.1}, {:.1}], y=[{:.1}, {:.1}]",
+            m.x,
+            m.x + m.width,
+            m.y,
+            m.y + m.height
+        );
+    }
 
     let mut graphics_state_stack: Vec<[f32; 6]> = Vec::new();
 
@@ -80,6 +126,11 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
     let mut ctm: [f32; 6] = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
     let mut in_text_object = false;
     let mut font_size: f32 = 12.0;
+
+    // 统计所有 Tj 的 Y 坐标范围（调试）
+    let mut min_y: f32 = f32::MAX;
+    let mut max_y: f32 = f32::MIN;
+    let mut tj_positions: Vec<(f32, f32)> = Vec::new();
 
     for op in content.operations {
         let operator = op.operator.as_str();
@@ -145,8 +196,13 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
                 if let (Some(tx), Some(ty)) =
                     (get_number(&op.operands[0]), get_number(&op.operands[1]))
                 {
-                    line_matrix[4] += tx;
-                    line_matrix[5] += ty;
+                    // Td: Tm = Lm × T(tx, ty)
+                    // 矩阵乘法: [a b c d e f] × [1 0 0 1 tx ty]
+                    // 结果: [a b c d (a*tx + c*ty + e) (b*tx + d*ty + f)]
+                    let new_e = line_matrix[0] * tx + line_matrix[2] * ty + line_matrix[4];
+                    let new_f = line_matrix[1] * tx + line_matrix[3] * ty + line_matrix[5];
+                    line_matrix[4] = new_e;
+                    line_matrix[5] = new_f;
                     text_matrix = line_matrix;
                 }
                 new_operations.push(op);
@@ -155,8 +211,12 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
                 if let (Some(tx), Some(ty)) =
                     (get_number(&op.operands[0]), get_number(&op.operands[1]))
                 {
-                    line_matrix[4] += tx;
-                    line_matrix[5] += ty;
+                    // TD: 等同于 -ty TL, tx ty Td
+                    // 矩阵乘法: [a b c d e f] × [1 0 0 1 tx ty]
+                    let new_e = line_matrix[0] * tx + line_matrix[2] * ty + line_matrix[4];
+                    let new_f = line_matrix[1] * tx + line_matrix[3] * ty + line_matrix[5];
+                    line_matrix[4] = new_e;
+                    line_matrix[5] = new_f;
                     text_matrix = line_matrix;
                 }
                 new_operations.push(op);
@@ -171,8 +231,12 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
                 new_operations.push(op);
             }
             "Tj" if in_text_object => {
-                let user_x = ctm[0] * text_matrix[4] + ctm[2] * text_matrix[5] + ctm[4];
-                let user_y = ctm[1] * text_matrix[4] + ctm[3] * text_matrix[5] + ctm[5];
+                // 将 text_matrix 位置转换到用户空间（应用 CTM）
+                // Mask 坐标是在用户空间中的，所以需要将文本位置也转换到用户空间
+                let tm_x = text_matrix[4];
+                let tm_y = text_matrix[5];
+                let user_x = ctm[0] * tm_x + ctm[2] * tm_y + ctm[4];
+                let user_y = ctm[1] * tm_x + ctm[3] * tm_y + ctm[5];
 
                 let (text_bytes, str_format) =
                     if let Some(Object::String(s, fmt)) = op.operands.first() {
@@ -181,26 +245,58 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
                         (vec![], lopdf::StringFormat::Literal)
                     };
 
-                let (redacted_text, any_redacted) =
-                    redact_text_chars(&text_bytes, user_x, user_y, font_size, masks);
+                // 记录位置统计
+                min_y = min_y.min(user_y);
+                max_y = max_y.max(user_y);
+                tj_positions.push((user_x, user_y));
+
+                // 打印第一个 Tj 的 CTM 和 text_matrix（调试）
+                if tj_positions.len() == 1 {
+                    log::info!(
+                        "[TextReplace] 第一个Tj: CTM=[{:.2}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}], text_matrix=[{:.2}, {:.2}, {:.2}, {:.2}, {:.2}, {:.2}], user_pos=({:.1}, {:.1})",
+                        ctm[0], ctm[1], ctm[2], ctm[3], ctm[4], ctm[5],
+                        text_matrix[0], text_matrix[1], text_matrix[2], text_matrix[3], text_matrix[4], text_matrix[5],
+                        user_x, user_y
+                    );
+                }
+
+                // 检查 Tj 位置是否在 mask 区域附近（调试用）
+                if let Some(m) = masks.first() {
+                    // 扩大检查范围，看看有没有 Tj 在 mask 的 Y 坐标范围附近（±100）
+                    let y_near_mask = user_y > m.y - 100.0 && user_y < m.y + m.height + 100.0;
+                    if y_near_mask {
+                        log::info!(
+                            "[Tj] Y坐标接近mask! 位置: ({:.1}, {:.1}), font_size={:.1}, mask_y=[{:.1}, {:.1}]",
+                            user_x, user_y, font_size, m.y, m.y + m.height
+                        );
+                    }
+                }
+
+                let (redacted_bytes, any_redacted) =
+                    redact_text_bytes(&text_bytes, user_x, user_y, font_size, masks);
 
                 if any_redacted {
                     log::info!(
-                        "[Tj脱敏] {:?} -> {:?}",
-                        String::from_utf8_lossy(&text_bytes),
-                        String::from_utf8_lossy(&redacted_text)
+                        "[Tj脱敏] 原始字节={:?}, 长度={}",
+                        &text_bytes[..text_bytes.len().min(10)],
+                        text_bytes.len()
                     );
                     new_operations.push(Operation::new(
                         "Tj",
-                        vec![Object::String(redacted_text, str_format)],
+                        vec![Object::String(redacted_bytes, str_format)],
                     ));
                 } else {
                     new_operations.push(op);
                 }
             }
             "TJ" if in_text_object => {
-                let mut current_x = ctm[0] * text_matrix[4] + ctm[2] * text_matrix[5] + ctm[4];
-                let user_y = ctm[1] * text_matrix[4] + ctm[3] * text_matrix[5] + ctm[5];
+                // 将 text_matrix 位置转换到用户空间（应用 CTM）
+                let tm_x = text_matrix[4];
+                let tm_y = text_matrix[5];
+                let mut current_x = ctm[0] * tm_x + ctm[2] * tm_y + ctm[4];
+                let user_y = ctm[1] * tm_x + ctm[3] * tm_y + ctm[5];
+                // CTM 的水平缩放因子，用于缩放文字宽度
+                let x_scale = ctm[0].abs().max(0.001);
 
                 let mut new_array: Vec<Object> = Vec::new();
                 let mut any_redacted = false;
@@ -209,26 +305,29 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
                     for item in arr {
                         match item {
                             Object::String(s, fmt) => {
-                                let (redacted, redacted_this) =
-                                    redact_text_chars(s, current_x, user_y, font_size, masks);
+                                let (redacted_bytes, redacted_this) =
+                                    redact_text_bytes(s, current_x, user_y, font_size, masks);
                                 if redacted_this {
                                     any_redacted = true;
                                     log::info!(
-                                        "[TJ脱敏] {:?} -> {:?}",
-                                        String::from_utf8_lossy(s),
-                                        String::from_utf8_lossy(&redacted)
+                                        "[TJ脱敏] 原始字节={:?}, 长度={}",
+                                        &s[..s.len().min(10)],
+                                        s.len()
                                     );
                                 }
-                                current_x += estimate_text_width(s, font_size);
-                                new_array.push(Object::String(redacted, *fmt));
+                                // 文字宽度需要按 CTM 缩放
+                                current_x += estimate_text_width(s, font_size) * x_scale;
+                                new_array.push(Object::String(redacted_bytes, *fmt));
                             }
                             Object::Integer(n) => {
-                                let adjustment = (*n as f32) / 1000.0 * font_size;
+                                // 调整值也需要按 CTM 缩放
+                                let adjustment = (*n as f32) / 1000.0 * font_size * x_scale;
                                 current_x -= adjustment;
                                 new_array.push(item.clone());
                             }
                             Object::Real(n) => {
-                                let adjustment = n / 1000.0 * font_size;
+                                // 调整值也需要按 CTM 缩放
+                                let adjustment = n / 1000.0 * font_size * x_scale;
                                 current_x -= adjustment;
                                 new_array.push(item.clone());
                             }
@@ -246,8 +345,11 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
                 }
             }
             "'" if in_text_object => {
-                let user_x = ctm[0] * text_matrix[4] + ctm[2] * text_matrix[5] + ctm[4];
-                let user_y = ctm[1] * text_matrix[4] + ctm[3] * text_matrix[5] + ctm[5];
+                // 将 text_matrix 位置转换到用户空间（应用 CTM）
+                let tm_x = text_matrix[4];
+                let tm_y = text_matrix[5];
+                let user_x = ctm[0] * tm_x + ctm[2] * tm_y + ctm[4];
+                let user_y = ctm[1] * tm_x + ctm[3] * tm_y + ctm[5];
 
                 let (text_bytes, str_format) =
                     if let Some(Object::String(s, fmt)) = op.operands.first() {
@@ -256,26 +358,29 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
                         (vec![], lopdf::StringFormat::Literal)
                     };
 
-                let (redacted_text, any_redacted) =
-                    redact_text_chars(&text_bytes, user_x, user_y, font_size, masks);
+                let (redacted_bytes, any_redacted) =
+                    redact_text_bytes(&text_bytes, user_x, user_y, font_size, masks);
 
                 if any_redacted {
-                    log::info![
-                        "['脱敏] {:?} -> {:?}",
-                        String::from_utf8_lossy(&text_bytes),
-                        String::from_utf8_lossy(&redacted_text)
-                    ];
+                    log::info!(
+                        "['脱敏] 原始字节={:?}, 长度={}",
+                        &text_bytes[..text_bytes.len().min(10)],
+                        text_bytes.len()
+                    );
                     new_operations.push(Operation::new(
                         "'",
-                        vec![Object::String(redacted_text, str_format)],
+                        vec![Object::String(redacted_bytes, str_format)],
                     ));
                 } else {
                     new_operations.push(op);
                 }
             }
             "\"" if in_text_object && op.operands.len() >= 3 => {
-                let user_x = ctm[0] * text_matrix[4] + ctm[2] * text_matrix[5] + ctm[4];
-                let user_y = ctm[1] * text_matrix[4] + ctm[3] * text_matrix[5] + ctm[5];
+                // 将 text_matrix 位置转换到用户空间（应用 CTM）
+                let tm_x = text_matrix[4];
+                let tm_y = text_matrix[5];
+                let user_x = ctm[0] * tm_x + ctm[2] * tm_y + ctm[4];
+                let user_y = ctm[1] * tm_x + ctm[3] * tm_y + ctm[5];
 
                 let (text_bytes, str_format) = if let Object::String(s, fmt) = &op.operands[2] {
                     (s.clone(), *fmt)
@@ -283,17 +388,17 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
                     (vec![], lopdf::StringFormat::Literal)
                 };
 
-                let (redacted_text, any_redacted) =
-                    redact_text_chars(&text_bytes, user_x, user_y, font_size, masks);
+                let (redacted_bytes, any_redacted) =
+                    redact_text_bytes(&text_bytes, user_x, user_y, font_size, masks);
 
                 if any_redacted {
                     log::info!(
-                        "[\"脱敏] {:?} -> {:?}",
-                        String::from_utf8_lossy(&text_bytes),
-                        String::from_utf8_lossy(&redacted_text)
+                        "[\"脱敏] 原始字节={:?}, 长度={}",
+                        &text_bytes[..text_bytes.len().min(10)],
+                        text_bytes.len()
                     );
                     let mut new_operands = op.operands.clone();
-                    new_operands[2] = Object::String(redacted_text, str_format);
+                    new_operands[2] = Object::String(redacted_bytes, str_format);
                     new_operations.push(Operation::new("\"", new_operands));
                 } else {
                     new_operations.push(op);
@@ -302,6 +407,24 @@ pub fn process_content_stream(content_data: &[u8], masks: &[MaskRect]) -> Result
             _ => {
                 new_operations.push(op);
             }
+        }
+    }
+
+    // 打印 Tj 位置统计
+    if !tj_positions.is_empty() {
+        log::info!(
+            "[TextReplace] Tj 位置统计: {} 个, Y范围=[{:.1}, {:.1}]",
+            tj_positions.len(),
+            min_y,
+            max_y
+        );
+        if let Some(m) = masks.first() {
+            log::info!(
+                "[TextReplace] Mask Y范围=[{:.1}, {:.1}], 是否有交集: {}",
+                m.y,
+                m.y + m.height,
+                min_y <= m.y + m.height && max_y >= m.y
+            );
         }
     }
 

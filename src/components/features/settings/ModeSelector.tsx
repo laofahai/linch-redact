@@ -10,8 +10,8 @@ interface ModeOption {
 }
 
 const modeOptions: ModeOption[] = [
-  { value: "text_replace", label: "高清", icon: FileText },
-  { value: "safe_render", label: "安全", icon: Shield },
+  { value: "text_replace", label: "文字替换", icon: FileText },
+  { value: "safe_render", label: "安全渲染", icon: Shield },
 ]
 
 export function ModeSelector() {

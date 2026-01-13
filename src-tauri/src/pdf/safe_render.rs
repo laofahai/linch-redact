@@ -184,6 +184,12 @@ pub fn safe_redact_pdf(
     masks_by_page: &std::collections::BTreeMap<usize, Vec<Mask>>,
     config: &RenderConfig,
 ) -> Result<(), String> {
+    log::info!(
+        "[SafeRender] 开始处理，masks_by_page keys: {:?}, 总 mask 数: {}",
+        masks_by_page.keys().collect::<Vec<_>>(),
+        masks_by_page.values().map(|v| v.len()).sum::<usize>()
+    );
+
     // 尝试初始化 pdfium，如果失败则返回错误让调用方回退
     let pdfium = bind_pdfium()?;
 
@@ -192,6 +198,7 @@ pub fn safe_redact_pdf(
         .map_err(|e| format!("加载 PDF 失败: {}", e))?;
 
     let page_count = document.pages().len();
+    log::info!("[SafeRender] PDF 页数: {}", page_count);
 
     // 创建新文档
     let mut new_doc = pdfium
@@ -209,9 +216,20 @@ pub fn safe_redact_pdf(
 
         // 检查此页是否需要脱敏
         let masks = masks_by_page.get(&(page_idx as usize));
+        log::info!(
+            "[SafeRender] 页面 {} 查找 masks: found={}, count={}",
+            page_idx,
+            masks.is_some(),
+            masks.map(|m| m.len()).unwrap_or(0)
+        );
 
         if let Some(masks) = masks {
             if !masks.is_empty() {
+                log::info!(
+                    "[SafeRender] 页面 {} 需要脱敏，masks: {:?}",
+                    page_idx,
+                    masks
+                );
                 // 需要脱敏：渲染为图片并添加黑框
                 let redacted_image =
                     render_and_redact_page(&pdfium, input_path, page_idx as usize, masks, config)?;

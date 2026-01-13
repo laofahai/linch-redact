@@ -124,7 +124,8 @@ impl MaskRect {
         let text_bottom = text_y;
         let text_top = text_y + text_height;
 
-        let margin: f32 = 5.0;
+        // margin 用于捕捉检测框边缘的字符，但不能太大以免误伤相邻内容
+        let margin: f32 = 1.0;
         let mask_left = self.x - margin;
         let mask_right = self.x + self.width + margin;
         let mask_bottom = self.y - margin;

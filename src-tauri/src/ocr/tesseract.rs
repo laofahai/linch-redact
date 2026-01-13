@@ -18,10 +18,12 @@ pub struct TesseractEngine {
 
 impl TesseractEngine {
     /// 创建 Tesseract 引擎
-    pub fn new(config: TesseractConfig) -> Result<Self, String> {
-        // 验证 binary 是否可用
-        let binary = config.binary_path.as_deref().unwrap_or("tesseract");
-        let version = get_tesseract_version(binary)?;
+    pub fn new(mut config: TesseractConfig) -> Result<Self, String> {
+        // 使用统一的查找逻辑
+        let (binary_path, version) = find_tesseract_binary(config.binary_path.as_deref())?;
+
+        // 更新配置中的路径
+        config.binary_path = Some(binary_path);
 
         log::info!("[Tesseract] 初始化成功，版本: {}", version);
 
@@ -192,6 +194,38 @@ fn parse_tesseract_tsv(
     Ok(results)
 }
 
+/// 查找可用的 Tesseract 二进制文件
+///
+/// 查找顺序：
+/// 1. 用户配置的路径
+/// 2. PATH 中的 tesseract
+/// 3. 常见安装路径
+///
+/// 返回 (binary_path, version)
+pub fn find_tesseract_binary(config_path: Option<&str>) -> Result<(String, String), String> {
+    let binary = config_path.unwrap_or("tesseract");
+
+    // 尝试配置路径或 PATH
+    if let Ok(version) = get_tesseract_version(binary) {
+        let actual_path = which_tesseract(binary).unwrap_or_else(|| binary.to_string());
+        return Ok((actual_path, version));
+    }
+
+    // 如果是用户配置的路径失败了，直接报错
+    if config_path.is_some() {
+        return Err(format!("无法执行配置的 Tesseract 路径: {}", binary));
+    }
+
+    // 尝试常见安装路径
+    if let Some(found_path) = which_tesseract("tesseract") {
+        if let Ok(version) = get_tesseract_version(&found_path) {
+            return Ok((found_path, version));
+        }
+    }
+
+    Err("无法找到 Tesseract，请确认已安装并正确配置".to_string())
+}
+
 /// 获取 Tesseract 版本
 pub fn get_tesseract_version(binary_path: &str) -> Result<String, String> {
     let output = Command::new(binary_path)
@@ -258,57 +292,33 @@ pub fn get_tesseract_langs(
 
 /// 检测 Tesseract 安装状态
 pub fn detect_tesseract_status(config: &TesseractConfig) -> TesseractStatus {
-    // 首先尝试用户配置的路径，然后尝试 PATH 中的 tesseract，最后尝试常见安装路径
-    let binary_path = config.binary_path.as_deref().unwrap_or("tesseract");
-
-    // 尝试获取版本（使用配置的路径或 PATH）
-    if let Ok(version) = get_tesseract_version(binary_path) {
-        let langs =
-            get_tesseract_langs(binary_path, config.tessdata_path.as_deref()).unwrap_or_default();
-        let actual_path = which_tesseract(binary_path);
-        let tessdata = config
-            .tessdata_path
-            .clone()
-            .or_else(|| find_tessdata_path(binary_path));
-
-        return TesseractStatus {
-            installed: true,
-            version: Some(version),
-            binary_path: actual_path,
-            tessdata_path: tessdata,
-            available_langs: langs,
-            error: None,
-        };
-    }
-
-    // 如果直接检测失败，尝试查找常见安装路径
-    if let Some(found_path) = which_tesseract("tesseract") {
-        if let Ok(version) = get_tesseract_version(&found_path) {
-            let langs = get_tesseract_langs(&found_path, config.tessdata_path.as_deref())
+    // 使用统一的查找逻辑
+    match find_tesseract_binary(config.binary_path.as_deref()) {
+        Ok((binary_path, version)) => {
+            let langs = get_tesseract_langs(&binary_path, config.tessdata_path.as_deref())
                 .unwrap_or_default();
             let tessdata = config
                 .tessdata_path
                 .clone()
-                .or_else(|| find_tessdata_path(&found_path));
+                .or_else(|| find_tessdata_path(&binary_path));
 
-            return TesseractStatus {
+            TesseractStatus {
                 installed: true,
                 version: Some(version),
-                binary_path: Some(found_path),
+                binary_path: Some(binary_path),
                 tessdata_path: tessdata,
                 available_langs: langs,
                 error: None,
-            };
+            }
         }
-    }
-
-    TesseractStatus {
-        installed: false,
-        version: None,
-        binary_path: None,
-        tessdata_path: None,
-        available_langs: Vec::new(),
-        error: Some("无法检测到 Tesseract，请确认已安装并正确配置".to_string()),
+        Err(e) => TesseractStatus {
+            installed: false,
+            version: None,
+            binary_path: None,
+            tessdata_path: None,
+            available_langs: Vec::new(),
+            error: Some(e),
+        },
     }
 }
 

@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ScanText,
+  ShieldAlert,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -17,8 +18,9 @@ import { Logo } from "@/components/shared/Logo"
 import { ThemeSwitcher, LanguageSwitcher, useUpdater, useConfig } from "@linch-tech/desktop-core"
 import { useOcrStore } from "@/stores/useOcrStore"
 import { cn } from "@/lib/utils"
+import { DetectionRulesSettings } from "@/components/features/settings/DetectionRulesSettings"
 
-type SettingsTab = "general" | "ocr" | "about"
+type SettingsTab = "general" | "ocr" | "detection" | "about"
 
 interface SettingsDialogProps {
   open: boolean
@@ -187,6 +189,19 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               variant="ghost"
               className={cn(
                 "w-full justify-start gap-2",
+                activeTab === "detection"
+                  ? "bg-primary/5 text-primary font-semibold"
+                  : "text-muted-foreground"
+              )}
+              onClick={() => setActiveTab("detection")}
+            >
+              <ShieldAlert className="h-4 w-4" />
+              敏感检测
+            </Button>
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-2",
                 activeTab === "about"
                   ? "bg-primary/5 text-primary font-semibold"
                   : "text-muted-foreground"
@@ -324,6 +339,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 </div>
               </div>
             )}
+
+            {activeTab === "detection" && <DetectionRulesSettings />}
 
             {activeTab === "about" && (
               <div className="flex flex-col items-center justify-center space-y-6 pt-6">

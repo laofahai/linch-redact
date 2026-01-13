@@ -24,8 +24,7 @@ export function MainPanel() {
   }
 
   return (
-    <main className="flex flex-1 flex-col overflow-hidden bg-muted/30">
-      {/* 顶部页面导航 - 固定 */}
+    <main className="flex flex-1 min-w-0 flex-col overflow-hidden bg-muted/30">
       {selectedFile && (
         <div className="flex shrink-0 items-center justify-center gap-4 border-b bg-card px-4 py-2 text-sm">
           <button
@@ -48,7 +47,6 @@ export function MainPanel() {
         </div>
       )}
 
-      {/* 预览区域 */}
       <div className="flex-1 overflow-auto p-4">
         {selectedFile ? (
           <div className="flex min-h-full items-start justify-center">
@@ -59,7 +57,6 @@ export function MainPanel() {
         )}
       </div>
 
-      {/* 底部工具栏 */}
       {selectedFile && (
         <div className="flex shrink-0 items-center justify-between border-t bg-card px-4 py-2">
           <MaskList />
@@ -77,12 +74,7 @@ function EmptyState({ onClick }: { onClick: () => void }) {
       onClick={onClick}
     >
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <svg
-          className="h-8 w-8"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -91,7 +83,7 @@ function EmptyState({ onClick }: { onClick: () => void }) {
           />
         </svg>
       </div>
-      <p className="text-sm">点击选择或拖入 PDF 文件</p>
+      <p className="text-sm">点击添加 PDF 文件</p>
     </div>
   )
 }
