@@ -79,11 +79,11 @@ export const useOcrStore = create<OcrStore>((set, get) => ({
     const model = ocrManifest.models.ppocr_v5
 
     if (!model) {
-      set({ statusMessage: "模型配置不存在" })
+      set({ statusMessage: "ocr.modelConfigMissing" })
       return
     }
 
-    set({ isInstalling: true, statusMessage: "正在下载模型..." })
+    set({ isInstalling: true, statusMessage: "ocr.downloadingModel" })
 
     try {
       const detUrl = useMirror ? model.files.det.mirrorUrl : model.files.det.url
@@ -100,7 +100,7 @@ export const useOcrStore = create<OcrStore>((set, get) => ({
       const engineStatus = await tauri.getOcrEngineStatus()
       set({
         engineStatus,
-        statusMessage: "安装完成！",
+        statusMessage: "ocr.installComplete",
       })
 
       setTimeout(() => {
@@ -108,7 +108,7 @@ export const useOcrStore = create<OcrStore>((set, get) => ({
       }, 500)
     } catch (error) {
       console.error("Failed to install Paddle models:", error)
-      set({ isInstalling: false, statusMessage: `安装失败: ${error}` })
+      set({ isInstalling: false, statusMessage: `ocr.installFailed` })
       throw error
     }
   },

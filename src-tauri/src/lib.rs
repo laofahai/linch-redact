@@ -2,7 +2,7 @@ mod config;
 mod ocr;
 mod pdf;
 
-pub use config::{load_config, save_config};
+pub use config::{load_config, load_detection_rules, save_config, save_detection_rules};
 pub use ocr::{
     check_tesseract_status,
     get_current_ocr_engine,
@@ -70,6 +70,8 @@ pub fn run() {
             // 配置
             load_config,
             save_config,
+            load_detection_rules,
+            save_detection_rules,
             // OCR 通用
             get_platform,
             get_ocr_engine_status,

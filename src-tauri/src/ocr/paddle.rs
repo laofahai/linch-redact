@@ -263,6 +263,7 @@ pub fn paddle_recognize(image_path: &str) -> ConfigResult<Vec<OcrTextResult>> {
                 w: r.bbox.w,
                 h: r.bbox.h,
             },
+            line_num: None, // Paddle OCR 没有原生行号，使用 y 坐标回退
         })
         .collect())
 }

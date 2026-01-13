@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { FolderOpen, Play, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useFileStore, useSettingsStore, useOcrStore, useEditorStore } from "@/stores"
@@ -7,6 +8,7 @@ import { toast } from "sonner"
 import { processPdfs } from "@/lib/tauri"
 
 export function Footer() {
+  const { t } = useTranslation()
   const files = useFileStore((s) => s.files)
   const settings = useSettingsStore((s) => s.settings)
   const setOutputDirectory = useSettingsStore((s) => s.setOutputDirectory)
@@ -22,12 +24,12 @@ export function Footer() {
   const [processing, setProcessing] = useState(false)
 
   const hasFiles = files.length > 0
-  const outputDir = settings.output.directory || "请选择输出目录"
+  const outputDir = settings.output.directory || t("processing.selectOutputDir")
 
   const handleSelectOutput = async () => {
     const selected = await open({
       directory: true,
-      title: "选择输出目录",
+      title: t("processing.selectOutputDir"),
     })
     if (selected) {
       setOutputDirectory(selected as string)
@@ -43,7 +45,7 @@ export function Footer() {
     }
 
     if (!settings.output.directory) {
-      toast.error("请先选择输出目录")
+      toast.error(t("processing.selectOutputDirFirst"))
       return
     }
 
@@ -83,14 +85,14 @@ export function Footer() {
       const result = await processPdfs(request)
 
       if (result.success) {
-        toast.success(`处理完成，共处理 ${result.processed_files.length} 个文件`)
+        toast.success(t("processing.processComplete", { count: result.processed_files.length }))
       } else {
         // 显示详细的错误信息给用户
         const errorCount = result.errors.length
         if (errorCount === 1) {
           toast.error(result.errors[0])
         } else {
-          toast.error(`处理失败，${errorCount} 个文件出错`)
+          toast.error(t("processing.processFailedMultiple", { count: errorCount }))
           // 逐个显示错误详情
           result.errors.forEach((err) => {
             toast.error(err, { duration: 8000 })
@@ -99,7 +101,7 @@ export function Footer() {
         result.errors.forEach((err) => console.error(err))
       }
     } catch (e) {
-      toast.error(`处理失败: ${e}`)
+      toast.error(`${t("processing.processFailed")}: ${e}`)
       console.error(e)
     } finally {
       setProcessing(false)
@@ -119,7 +121,7 @@ export function Footer() {
       <div className="flex items-center gap-2">
         <Button size="sm" disabled={!hasFiles || processing} onClick={handleStartProcessing}>
           {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          {processing ? "处理中..." : "开始处理"}
+          {processing ? t("common.processing") : t("processing.startProcessing")}
         </Button>
       </div>
     </footer>

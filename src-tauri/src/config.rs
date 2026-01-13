@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use tauri::Manager;
 
 use crate::ocr::{OcrEngineType, TesseractConfig};
+use crate::pdf::Rule;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(default, rename_all = "camelCase")]
@@ -76,6 +77,37 @@ pub fn save_config(app: tauri::AppHandle, config: AppConfig) -> ConfigResult<()>
         fs::create_dir_all(dir).map_err(|err| err.to_string())?;
     }
     let raw = serde_json::to_string_pretty(&config).map_err(|err| err.to_string())?;
+    fs::write(path, raw).map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+// ============ 检测规则存储 ============
+
+fn rules_path(app: &tauri::AppHandle) -> Result<PathBuf, ConfigError> {
+    let base = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| ConfigError::NoAppDataDir)?;
+    Ok(base.join("linch-redact").join("detection-rules.json"))
+}
+
+#[tauri::command]
+pub fn load_detection_rules(app: tauri::AppHandle) -> ConfigResult<Vec<Rule>> {
+    let path = rules_path(&app).map_err(|err| err.to_string())?;
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let raw = fs::read_to_string(path).map_err(|err| err.to_string())?;
+    serde_json::from_str(&raw).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn save_detection_rules(app: tauri::AppHandle, rules: Vec<Rule>) -> ConfigResult<()> {
+    let path = rules_path(&app).map_err(|err| err.to_string())?;
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir).map_err(|err| err.to_string())?;
+    }
+    let raw = serde_json::to_string_pretty(&rules).map_err(|err| err.to_string())?;
     fs::write(path, raw).map_err(|err| err.to_string())?;
     Ok(())
 }

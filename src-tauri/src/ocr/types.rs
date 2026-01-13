@@ -28,6 +28,9 @@ pub struct OcrTextResult {
     pub text: String,
     pub confidence: f32,
     pub bbox: BBox,
+    /// 行号（用于按行合并，从 1 开始）
+    #[serde(default)]
+    pub line_num: Option<u32>,
 }
 
 /// 边界框（相对坐标 0-1）

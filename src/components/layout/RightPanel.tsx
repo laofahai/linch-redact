@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { Separator } from "@/components/ui/separator"
 import { DetectionPanel } from "@/components/features/detection/DetectionPanel"
 import { ModeSelector } from "@/components/features/settings/ModeSelector"
@@ -5,6 +6,7 @@ import { CleaningOptionsPanel } from "@/components/features/settings/CleaningOpt
 import { useFileStore } from "@/stores"
 
 export function RightPanel() {
+  const { t } = useTranslation()
   const hasSelectedFile = !!useFileStore((s) => s.selectedFileId)
 
   return (
@@ -28,7 +30,7 @@ export function RightPanel() {
         </>
       ) : (
         <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground p-3">
-          添加 PDF 后可配置检测与选项。
+          {t("sidebar.noPdf")}
         </div>
       )}
     </aside>

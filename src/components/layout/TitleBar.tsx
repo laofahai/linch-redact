@@ -1,7 +1,15 @@
+import { useTranslation } from "react-i18next"
+import {
+  WindowControls,
+  LanguageSwitcher,
+  ThemeSwitcher,
+  startDragging,
+  toggleMaximize,
+} from "@linch-tech/desktop-core"
 import { Logo } from "@/components/shared/Logo"
-import { WindowControls, LanguageSwitcher, startDragging, toggleMaximize } from "@linch-tech/desktop-core"
 
 export function TitleBar() {
+  const { t } = useTranslation()
   const handleMouseDown = async (e: React.MouseEvent) => {
     // 只响应左键，且不是双击
     if (e.button === 0 && e.detail === 1) {
@@ -29,16 +37,14 @@ export function TitleBar() {
     >
       {/* 左侧 Logo 和标题 */}
       <div className="flex items-center gap-2 pointer-events-none">
-        <Logo className="h-5 w-5 text-foreground" />
-        <span className="text-sm font-medium">Linch 文档脱敏器</span>
+        <Logo className="h-5 w-5" />
+        <span className="text-sm font-medium">{t("app.name")}</span>
       </div>
 
-      {/* 右侧：语言切换 + 窗口控制按钮 */}
-      <div
-        className="flex items-center gap-2"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      {/* 右侧：语言切换 + 主题切换 + 窗口控制按钮 */}
+      <div className="flex items-center gap-2" onMouseDown={(e) => e.stopPropagation()}>
         <LanguageSwitcher />
+        <ThemeSwitcher />
         <WindowControls />
       </div>
     </header>

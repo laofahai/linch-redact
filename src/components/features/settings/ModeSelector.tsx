@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useSettingsStore } from "@/stores"
 import { FileText, Shield, Wand2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -5,16 +6,17 @@ import type { RedactionMode } from "@/types"
 
 interface ModeOption {
   value: RedactionMode
-  label: string
+  labelKey: string
   icon: React.ComponentType<{ className?: string }>
 }
 
 const modeOptions: ModeOption[] = [
-  { value: "text_replace", label: "高清模式", icon: FileText },
-  { value: "safe_render", label: "安全渲染", icon: Shield },
+  { value: "text_replace", labelKey: "mode.redaction", icon: FileText },
+  { value: "safe_render", labelKey: "mode.secure", icon: Shield },
 ]
 
 export function ModeSelector() {
+  const { t } = useTranslation()
   const redactionMode = useSettingsStore((s) => s.settings.redactionMode)
   const setRedactionMode = useSettingsStore((s) => s.setRedactionMode)
 
@@ -22,7 +24,7 @@ export function ModeSelector() {
     <div className="space-y-2">
       <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
         <Wand2 className="h-3 w-3" />
-        脱敏模式
+        {t("mode.title")}
       </h3>
       <div className="flex gap-1">
         {modeOptions.map((option) => {
@@ -40,7 +42,7 @@ export function ModeSelector() {
               onClick={() => setRedactionMode(option.value)}
             >
               <Icon className="h-4 w-4" />
-              {option.label}
+              {t(option.labelKey)}
             </button>
           )
         })}

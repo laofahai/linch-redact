@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,7 @@ interface PageListProps {
 }
 
 export function PageList({ hideTitle = false }: PageListProps) {
+  const { t } = useTranslation()
   const files = useFileStore((s) => s.files)
   const selectedFileId = useFileStore((s) => s.selectedFileId)
   const setPageAction = useFileStore((s) => s.setPageAction)
@@ -36,16 +38,16 @@ export function PageList({ hideTitle = false }: PageListProps) {
     // 如果当前页面已删除，则恢复；否则删除
     if (page.action === "delete") {
       setPageAction(selectedFile.id, pageIndex, "keep")
-      toast.success("已恢复页面")
+      toast.success(t("sidebar.pageRestored"))
     } else {
       if (nonDeletedCount <= 1) {
-        toast.warning("无法删除最后一页", {
-          description: "PDF 必须至少保留一页",
+        toast.warning(t("sidebar.cannotDeleteLastPage"), {
+          description: t("sidebar.cannotDeleteLastPageDesc"),
         })
         return
       }
       setPageAction(selectedFile.id, pageIndex, "delete")
-      toast.success("已标记删除")
+      toast.success(t("sidebar.pageMarkedDelete"))
     }
   }
 
@@ -55,14 +57,16 @@ export function PageList({ hideTitle = false }: PageListProps) {
         {!hideTitle && (
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              页面列表
+              {t("sidebar.pageList")}
             </h3>
-            <span className="text-xs text-muted-foreground">{pages.length} 页</span>
+            <span className="text-xs text-muted-foreground">
+              {t("sidebar.pageCount", { count: pages.length })}
+            </span>
           </div>
         )}
 
         {pages.length === 0 ? (
-          <p className="text-xs text-muted-foreground">正在加载页面...</p>
+          <p className="text-xs text-muted-foreground">{t("sidebar.loadingPages")}</p>
         ) : (
           <div className="space-y-0.5">
             {pages.map((page) => {
@@ -83,13 +87,13 @@ export function PageList({ hideTitle = false }: PageListProps) {
                   onClick={() => setCurrentPage(page.index)}
                 >
                   <span className={cn("flex-1", isDeleted && "line-through text-muted-foreground")}>
-                    第 {page.index + 1} 页
+                    {t("sidebar.pageN", { n: page.index + 1 })}
                   </span>
 
                   {/* 脱敏区域数量 */}
                   {maskCount > 0 && !isDeleted && (
                     <span className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                      {maskCount} 处
+                      {t("sidebar.maskCount", { count: maskCount })}
                     </span>
                   )}
 
@@ -112,7 +116,7 @@ export function PageList({ hideTitle = false }: PageListProps) {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p>{isDeleted ? "恢复此页" : "删除此页"}</p>
+                      <p>{isDeleted ? t("sidebar.restorePage") : t("sidebar.deletePage")}</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>

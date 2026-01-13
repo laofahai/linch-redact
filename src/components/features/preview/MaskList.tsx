@@ -1,22 +1,28 @@
+import { useTranslation } from "react-i18next"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useEditorStore } from "@/stores"
 
 export function MaskList() {
+  const { t } = useTranslation()
   const currentPage = useEditorStore((s) => s.currentPage)
-  const getCurrentMasks = useEditorStore((s) => s.getCurrentMasks)
+  const currentFileId = useEditorStore((s) => s.currentFileId)
+  const masksByFile = useEditorStore((s) => s.masksByFile)
   const removeMask = useEditorStore((s) => s.removeMask)
   const clearPageMasks = useEditorStore((s) => s.clearPageMasks)
 
-  const masks = getCurrentMasks()
+  // 直接从 state 计算 masks，确保状态变化时组件重新渲染
+  const masks = currentFileId ? (masksByFile[currentFileId]?.[currentPage] ?? []) : []
 
   if (masks.length === 0) {
-    return <div className="text-sm text-muted-foreground">当前页无遮盖标记</div>
+    return <div className="text-sm text-muted-foreground">{t("preview.noMasks")}</div>
   }
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-muted-foreground">遮盖区域: {masks.length}</span>
+      <span className="text-sm text-muted-foreground">
+        {t("preview.maskCount", { count: masks.length })}
+      </span>
       <div className="flex items-center gap-1">
         {masks.map((mask, index) => (
           <Button
@@ -38,7 +44,7 @@ export function MaskList() {
           className="h-6 text-xs text-destructive hover:text-destructive"
           onClick={() => clearPageMasks(currentPage)}
         >
-          清除全部
+          {t("common.clearAll")}
         </Button>
       )}
     </div>

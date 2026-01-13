@@ -1,8 +1,9 @@
-import type { LinchDesktopConfig } from '@linch-tech/desktop-core';
+import type { LinchDesktopConfig } from "@linch-tech/desktop-core"
+import { zh, en } from "./locales"
 
 export const config: Partial<LinchDesktopConfig> = {
   brand: {
-    name: 'app.name',
+    name: "app.name",
     version: `v${__APP_VERSION__}`,
   },
 
@@ -22,23 +23,11 @@ export const config: Partial<LinchDesktopConfig> = {
   },
 
   i18n: {
-    defaultLanguage: 'zh',
-    supportedLanguages: ['zh', 'en'],
+    defaultLanguage: "zh",
+    supportedLanguages: ["zh", "en"],
     resources: {
-      en: {
-        app: {
-          name: 'Linch Redact',
-          description: 'PDF Sensitive Content Redaction Tool',
-          dragDropHint: 'Drop PDF files here',
-        },
-      },
-      zh: {
-        app: {
-          name: 'Linch Redact',
-          description: 'PDF 敏感信息遮盖工具',
-          dragDropHint: '释放以添加 PDF 文件',
-        },
-      },
+      zh,
+      en,
     },
   },
-};
+}

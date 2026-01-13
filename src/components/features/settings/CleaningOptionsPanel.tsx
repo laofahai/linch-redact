@@ -1,21 +1,23 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { ChevronDown, ChevronRight, Settings2 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useSettingsStore } from "@/stores"
 
 export function CleaningOptionsPanel() {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const settings = useSettingsStore((s) => s.settings)
   const toggleCleaning = useSettingsStore((s) => s.toggleCleaning)
 
   const cleaningOptions = [
-    { key: "documentInfo" as const, label: "文档信息" },
-    { key: "xmpMetadata" as const, label: "XMP 元数据" },
-    { key: "annotations" as const, label: "注释" },
-    { key: "forms" as const, label: "表单" },
-    { key: "attachments" as const, label: "附件" },
-    { key: "javascript" as const, label: "JavaScript" },
+    { key: "documentInfo" as const, labelKey: "cleaning.documentInfo" },
+    { key: "xmpMetadata" as const, labelKey: "cleaning.xmpMetadata" },
+    { key: "annotations" as const, labelKey: "cleaning.annotations" },
+    { key: "forms" as const, labelKey: "cleaning.forms" },
+    { key: "attachments" as const, labelKey: "cleaning.attachments" },
+    { key: "javascript" as const, labelKey: "cleaning.javascript" },
   ]
 
   const enabledCount = cleaningOptions.filter((opt) => settings.cleaning[opt.key]).length
@@ -28,7 +30,7 @@ export function CleaningOptionsPanel() {
       >
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
           <Settings2 className="h-3 w-3" />
-          高级选项
+          {t("cleaning.title")}
           {expanded ? (
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           ) : (
@@ -36,7 +38,9 @@ export function CleaningOptionsPanel() {
           )}
         </h3>
         {enabledCount > 0 && (
-          <span className="text-xs text-muted-foreground">{enabledCount} 项</span>
+          <span className="text-xs text-muted-foreground">
+            {enabledCount} {t("common.items")}
+          </span>
         )}
       </div>
 
@@ -51,7 +55,7 @@ export function CleaningOptionsPanel() {
                 className="h-4 w-4"
               />
               <Label htmlFor={option.key} className="text-sm font-normal cursor-pointer">
-                {option.label}
+                {t(option.labelKey)}
               </Label>
             </div>
           ))}

@@ -11,6 +11,8 @@ import {
   AlertCircle,
   ScanText,
   ShieldAlert,
+  ExternalLink,
+  Github,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -183,7 +185,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               onClick={() => setActiveTab("ocr")}
             >
               <ScanText className="h-4 w-4" />
-              OCR 引擎
+              {t("settings.tabs.ocr")}
             </Button>
             <Button
               variant="ghost"
@@ -196,7 +198,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               onClick={() => setActiveTab("detection")}
             >
               <ShieldAlert className="h-4 w-4" />
-              敏感检测
+              {t("settings.tabs.detection")}
             </Button>
             <Button
               variant="ghost"
@@ -243,7 +245,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               <div className="space-y-6">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium">选择 OCR 引擎</h3>
+                    <h3 className="text-sm font-medium">{t("ocr.selectEngine")}</h3>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -253,9 +255,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    OCR 引擎用于识别图片格式 PDF 中的文字
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("ocr.engineDescription")}</p>
                 </div>
 
                 <div className="space-y-3">
@@ -273,14 +273,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       <div className="space-y-1">
                         <div className="font-medium">Tesseract</div>
                         <div className="text-xs text-muted-foreground">
-                          开源 OCR 引擎，支持多语言
+                          {t("ocr.tesseract.description")}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {engineStatus?.tesseract.installed ? (
                           <span className="text-xs text-green-600 flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" />
-                            已安装
+                            {t("common.installed")}
                           </span>
                         ) : (
                           <Button
@@ -291,7 +291,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               openOcrDialog()
                             }}
                           >
-                            安装
+                            {t("common.install")}
                           </Button>
                         )}
                       </div>
@@ -312,14 +312,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                       <div className="space-y-1">
                         <div className="font-medium">Paddle OCR</div>
                         <div className="text-xs text-muted-foreground">
-                          百度飞桨 OCR，中文识别更准确
+                          {t("ocr.paddle.description")}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {engineStatus?.paddle.installed ? (
                           <span className="text-xs text-green-600 flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" />
-                            已安装
+                            {t("common.installed")}
                           </span>
                         ) : (
                           <Button
@@ -330,7 +330,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               openOcrDialog()
                             }}
                           >
-                            安装
+                            {t("common.install")}
                           </Button>
                         )}
                       </div>
@@ -355,9 +355,30 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
                 {renderUpdateButton()}
 
-                <div className="text-xs text-muted-foreground pt-4 text-center max-w-sm">
-                  <p>{t("settings.about.footer_line1")}</p>
-                  <p>{t("settings.about.footer_line2")}</p>
+                <div className="text-center pt-4 space-y-3">
+                  <p className="text-sm text-muted-foreground italic">
+                    {t("settings.about.slogan")}
+                  </p>
+                  <div className="flex items-center justify-center gap-4">
+                    <a
+                      href="https://linch.tech/products/redact"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {t("settings.about.website")}
+                    </a>
+                    <a
+                      href="https://github.com/laofahai/linch-redact"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Github className="h-4 w-4" />
+                      {t("settings.about.github")}
+                    </a>
+                  </div>
                 </div>
               </div>
             )}

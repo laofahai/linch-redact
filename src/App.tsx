@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { BrowserRouter } from "react-router-dom"
 import { getCurrentWindow } from "@tauri-apps/api/window"
-import { LinchDesktopProvider, TitleBar, useUpdater } from "@linch-tech/desktop-core"
+import { LinchDesktopProvider, useUpdater } from "@linch-tech/desktop-core"
+import { TitleBar } from "@/components/layout/TitleBar"
 import { Toaster } from "sonner"
 import { config } from "./config"
 import { Sidebar } from "@/components/layout/Sidebar"
@@ -16,6 +18,7 @@ import { useSettingsDialogStore } from "@/stores/useSettingsDialogStore"
 import { useDetectionRulesStore } from "@/stores/useDetectionRulesStore"
 
 function AppContent() {
+  const { t } = useTranslation()
   const loadStatus = useOcrStore((s) => s.loadStatus)
   const loadRules = useDetectionRulesStore((s) => s.loadRules)
   const addFiles = useFileStore((s) => s.addFiles)
@@ -147,7 +150,7 @@ function AppContent() {
       {isDragging && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="rounded-lg border-2 border-dashed border-primary p-8 text-center">
-            <p className="text-lg font-medium">释放以添加 PDF 文件</p>
+            <p className="text-lg font-medium">{t("app.dragDropHint")}</p>
           </div>
         </div>
       )}

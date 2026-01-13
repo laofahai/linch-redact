@@ -21,7 +21,7 @@
         "decorations": false,
         "transparent": false,
         "resizable": true,
-        "maximized": true
+        "maximized": false
       }
     ],
     "security": {

@@ -31,3 +31,13 @@ coverage/
 src-tauri/libs/*.so
 src-tauri/libs/*.dylib
 src-tauri/libs/*.dll
+
+# Tauri generated files
+src-tauri/gen/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+
+# Claude temp files
+tmpclaude-*
+src-tauri/tmpclaude-*

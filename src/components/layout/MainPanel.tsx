@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { PreviewCanvas } from "@/components/features/preview/PreviewCanvas"
 import { MaskList } from "@/components/features/preview/MaskList"
 import { ZoomControls } from "@/components/features/preview/ZoomControls"
@@ -5,6 +6,7 @@ import { useFileStore, useEditorStore } from "@/stores"
 import { open } from "@tauri-apps/plugin-dialog"
 
 export function MainPanel() {
+  const { t } = useTranslation()
   const selectedFile = useFileStore((s) => s.getSelectedFile())
   const addFiles = useFileStore((s) => s.addFiles)
   const currentPage = useEditorStore((s) => s.currentPage)
@@ -15,7 +17,7 @@ export function MainPanel() {
     const selected = await open({
       multiple: true,
       filters: [{ name: "PDF", extensions: ["pdf"] }],
-      title: "选择 PDF 文件",
+      title: t("sidebar.addFile"),
     })
     if (selected) {
       const paths = Array.isArray(selected) ? selected : [selected]
@@ -32,7 +34,7 @@ export function MainPanel() {
             onClick={() => prevPage()}
             disabled={currentPage === 0}
           >
-            上一页
+            {t("common.prev")}
           </button>
           <span className="text-muted-foreground">
             {currentPage + 1} / {selectedFile.pageCount || "?"}
@@ -42,7 +44,7 @@ export function MainPanel() {
             onClick={() => nextPage(selectedFile.pageCount)}
             disabled={currentPage >= selectedFile.pageCount - 1}
           >
-            下一页
+            {t("common.next")}
           </button>
         </div>
       )}
@@ -53,7 +55,7 @@ export function MainPanel() {
             <PreviewCanvas file={selectedFile} />
           </div>
         ) : (
-          <EmptyState onClick={handleAddFile} />
+          <EmptyState onClick={handleAddFile} label={t("sidebar.addFile")} />
         )}
       </div>
 
@@ -67,7 +69,7 @@ export function MainPanel() {
   )
 }
 
-function EmptyState({ onClick }: { onClick: () => void }) {
+function EmptyState({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <div
       className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 text-muted-foreground transition-colors hover:border-primary hover:bg-muted/50"
@@ -83,7 +85,7 @@ function EmptyState({ onClick }: { onClick: () => void }) {
           />
         </svg>
       </div>
-      <p className="text-sm">点击添加 PDF 文件</p>
+      <p className="text-sm">{label}</p>
     </div>
   )
 }

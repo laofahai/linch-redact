@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Download, Loader2, Check, X, Settings, Terminal, Copy } from "lucide-react"
 import { listen } from "@tauri-apps/api/event"
 import { toast } from "sonner"
-import { getCurrentPlatform, installTesseractOcr, type TesseractInstallProgress } from "@/lib/tauri/ocr"
+import {
+  getCurrentPlatform,
+  installTesseractOcr,
+  type TesseractInstallProgress,
+} from "@/lib/tauri/ocr"
 import {
   Dialog,
   DialogContent,
@@ -30,6 +35,7 @@ interface DownloadProgress {
 }
 
 export function OcrSetupDialog() {
+  const { t } = useTranslation()
   const dialogOpen = useOcrStore((s) => s.dialogOpen)
   const closeDialog = useOcrStore((s) => s.closeDialog)
   const isInstalling = useOcrStore((s) => s.isInstalling)
@@ -136,14 +142,14 @@ export function OcrSetupDialog() {
         const cmd = errorStr.split("WSL_MANUAL:")[1]
         setWslCommand(cmd)
       } else {
-        toast.error(`安装失败: ${error}`)
+        toast.error(`${t("ocr.installFailed")}: ${error}`)
       }
     }
   }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    toast.success("已复制到剪贴板")
+    toast.success(t("common.copiedToClipboard"))
   }
 
   // 计算模型大小
@@ -165,10 +171,8 @@ export function OcrSetupDialog() {
     <Dialog open={dialogOpen} onOpenChange={closeDialog}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>OCR 引擎设置</DialogTitle>
-          <DialogDescription>
-            选择并配置 OCR 引擎用于识别扫描版 PDF 中的文字
-          </DialogDescription>
+          <DialogTitle>{t("ocr.title")}</DialogTitle>
+          <DialogDescription>{t("ocr.subtitle")}</DialogDescription>
         </DialogHeader>
 
         <Tabs value={currentEngine} onValueChange={(v) => handleEngineChange(v as OcrEngineType)}>
@@ -195,30 +199,30 @@ export function OcrSetupDialog() {
             {paddleInstalled ? (
               <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-3 text-sm">
                 <p className="font-medium text-green-700 dark:text-green-400">
-                  Paddle OCR 已安装
+                  {t("ocr.paddle.installed")}
                 </p>
                 <p className="text-muted-foreground mt-1">
-                  版本: {engineStatus?.paddle.modelVersion || "PP-OCRv5"}
+                  {t("ocr.version")}: {engineStatus?.paddle.modelVersion || "PP-OCRv5"}
                 </p>
               </div>
             ) : (
               <>
                 {model && (
                   <div className="rounded-md bg-muted p-3 text-sm space-y-1">
-                    <p><strong>{model.name}</strong></p>
+                    <p>
+                      <strong>{model.name}</strong>
+                    </p>
                     <p className="text-muted-foreground">{model.description}</p>
                     <p className="text-muted-foreground">
-                      版本: {model.version} | 大小: ~{totalSize} MB
+                      {t("ocr.paddle.versionSize", { version: model.version, size: totalSize })}
                     </p>
                   </div>
                 )}
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="mirror">使用国内镜像</Label>
-                    <p className="text-xs text-muted-foreground">
-                      推荐国内用户开启，下载更快
-                    </p>
+                    <Label htmlFor="mirror">{t("ocr.useMirror")}</Label>
+                    <p className="text-xs text-muted-foreground">{t("ocr.useMirrorHint")}</p>
                   </div>
                   <Switch
                     id="mirror"
@@ -244,22 +248,18 @@ export function OcrSetupDialog() {
                   </div>
                 )}
 
-                <Button
-                  className="w-full"
-                  onClick={handleInstallPaddle}
-                  disabled={isInstalling}
-                >
+                <Button className="w-full" onClick={handleInstallPaddle} disabled={isInstalling}>
                   {isInstalling ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       {progress
-                        ? `下载中 (${progress.fileIndex}/${progress.totalFiles}) ${progress.percent.toFixed(0)}%`
-                        : "准备下载..."}
+                        ? `${t("ocr.downloadingModel")} (${progress.fileIndex}/${progress.totalFiles}) ${progress.percent.toFixed(0)}%`
+                        : `${t("common.loading")}`}
                     </>
                   ) : (
                     <>
                       <Download className="mr-2 h-4 w-4" />
-                      下载安装 (~{totalSize} MB)
+                      {t("common.install")} (~{totalSize} MB)
                     </>
                   )}
                 </Button>
@@ -271,28 +271,30 @@ export function OcrSetupDialog() {
             {tesseractInstalled ? (
               <div className="rounded-md bg-green-50 dark:bg-green-900/20 p-3 text-sm">
                 <p className="font-medium text-green-700 dark:text-green-400">
-                  Tesseract 已检测到
+                  {t("ocr.tesseract.detected")}
                 </p>
                 <p className="text-muted-foreground mt-1">
-                  版本: {engineStatus?.tesseract.version || "unknown"}
+                  {t("ocr.version")}: {engineStatus?.tesseract.version || "unknown"}
                 </p>
                 {engineStatus?.tesseract.binaryPath && (
                   <p className="text-muted-foreground text-xs mt-1 font-mono">
-                    路径: {engineStatus.tesseract.binaryPath}
+                    {engineStatus.tesseract.binaryPath}
                   </p>
                 )}
-                {engineStatus?.tesseract.availableLangs && engineStatus.tesseract.availableLangs.length > 0 && (
-                  <p className="text-muted-foreground text-xs mt-1">
-                    可用语言: {engineStatus.tesseract.availableLangs.slice(0, 5).join(", ")}
-                    {engineStatus.tesseract.availableLangs.length > 5 && ` +${engineStatus.tesseract.availableLangs.length - 5} 更多`}
-                  </p>
-                )}
+                {engineStatus?.tesseract.availableLangs &&
+                  engineStatus.tesseract.availableLangs.length > 0 && (
+                    <p className="text-muted-foreground text-xs mt-1">
+                      {engineStatus.tesseract.availableLangs.slice(0, 5).join(", ")}
+                      {engineStatus.tesseract.availableLangs.length > 5 &&
+                        ` +${engineStatus.tesseract.availableLangs.length - 5}`}
+                    </p>
+                  )}
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-3 text-sm">
                   <p className="text-yellow-700 dark:text-yellow-400">
-                    Tesseract 未安装，点击下方按钮一键安装
+                    {t("ocr.tesseract.notInstalled")}
                   </p>
                 </div>
 
@@ -311,9 +313,7 @@ export function OcrSetupDialog() {
                 {/* WSL 手动安装命令 */}
                 {wslCommand ? (
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      WSL 环境请在终端中手动运行以下命令：
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t("ocr.wslManualInstall")}</p>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 px-2 py-1.5 text-xs bg-muted rounded font-mono overflow-x-auto">
                         {wslCommand}
@@ -326,9 +326,7 @@ export function OcrSetupDialog() {
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      安装完成后点击下方按钮刷新状态
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t("ocr.wslRefreshHint")}</p>
                     <Button
                       variant="outline"
                       className="w-full"
@@ -337,7 +335,7 @@ export function OcrSetupDialog() {
                         loadStatus()
                       }}
                     >
-                      刷新状态
+                      {t("common.refresh")}
                     </Button>
                   </div>
                 ) : (
@@ -349,12 +347,12 @@ export function OcrSetupDialog() {
                     {tesseractInstalling ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        安装中...
+                        {t("common.processing")}
                       </>
                     ) : (
                       <>
                         <Terminal className="mr-2 h-4 w-4" />
-                        一键安装 Tesseract
+                        {t("ocr.tesseract.oneClickInstall")}
                       </>
                     )}
                   </Button>
@@ -371,7 +369,7 @@ export function OcrSetupDialog() {
                 onClick={() => setShowTesseractAdvanced(true)}
               >
                 <Settings className="mr-2 h-3.5 w-3.5" />
-                手动配置
+                {t("settings.title", { defaultValue: "Settings" })}
               </Button>
             )}
 
@@ -379,31 +377,37 @@ export function OcrSetupDialog() {
             {tesseractInstalled && showTesseractAdvanced && (
               <div className="space-y-3 border-t pt-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="tess-binary">可执行文件路径（可选）</Label>
+                  <Label htmlFor="tess-binary">{t("ocr.tesseract.binaryPath")}</Label>
                   <Input
                     id="tess-binary"
-                    placeholder="tesseract（默认使用 PATH）"
+                    placeholder={t("ocr.tesseract.binaryPathPlaceholder")}
                     value={tesseractConfig.binaryPath || ""}
                     onChange={(e) =>
-                      setTesseractConfig({ ...tesseractConfig, binaryPath: e.target.value || undefined })
+                      setTesseractConfig({
+                        ...tesseractConfig,
+                        binaryPath: e.target.value || undefined,
+                      })
                     }
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="tess-data">tessdata 路径（可选）</Label>
+                  <Label htmlFor="tess-data">{t("ocr.tesseract.tessdataPath")}</Label>
                   <Input
                     id="tess-data"
-                    placeholder="自动检测"
+                    placeholder={t("ocr.tesseract.tessdataPathPlaceholder")}
                     value={tesseractConfig.tessdataPath || ""}
                     onChange={(e) =>
-                      setTesseractConfig({ ...tesseractConfig, tessdataPath: e.target.value || undefined })
+                      setTesseractConfig({
+                        ...tesseractConfig,
+                        tessdataPath: e.target.value || undefined,
+                      })
                     }
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>识别语言</Label>
+                  <Label>{t("ocr.tesseract.language")}</Label>
                   <div className="flex flex-wrap gap-1.5">
                     {(engineStatus?.tesseract.availableLangs || []).slice(0, 20).map((lang) => {
                       const selectedLangs = (tesseractConfig.lang || "").split("+").filter(Boolean)
@@ -434,24 +438,17 @@ export function OcrSetupDialog() {
                   </div>
                   {(tesseractConfig.lang || "").split("+").filter(Boolean).length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      已选: {tesseractConfig.lang}
+                      {t("ocr.tesseract.selectedLangs", { langs: tesseractConfig.lang })}
                     </p>
                   )}
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    className="flex-1"
-                    variant="outline"
-                    onClick={handleSaveTesseractConfig}
-                  >
-                    保存配置
+                  <Button className="flex-1" variant="outline" onClick={handleSaveTesseractConfig}>
+                    {t("common.save")}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowTesseractAdvanced(false)}
-                  >
-                    收起
+                  <Button variant="ghost" onClick={() => setShowTesseractAdvanced(false)}>
+                    {t("common.close")}
                   </Button>
                 </div>
               </div>
@@ -461,7 +458,7 @@ export function OcrSetupDialog() {
 
         {statusMessage && !isInstalling && (
           <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
-            {statusMessage}
+            {t(statusMessage)}
           </div>
         )}
       </DialogContent>

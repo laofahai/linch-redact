@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useEditorStore, useFileStore } from "@/stores"
 import { loadPdf, renderPageToCanvas } from "@/lib/pdf"
 import { MaskOverlay } from "./MaskOverlay"
@@ -9,6 +10,7 @@ interface PreviewCanvasProps {
 }
 
 export function PreviewCanvas({ file }: PreviewCanvasProps) {
+  const { t } = useTranslation()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -102,7 +104,7 @@ export function PreviewCanvas({ file }: PreviewCanvasProps) {
         const err = e as { name?: string }
         if (!cancelled && err?.name !== "RenderingCancelledException") {
           console.error("Failed to load PDF:", e)
-          setError("无法加载 PDF")
+          setError(t("preview.loadFailed"))
           setLoading(false)
         }
       }
@@ -213,7 +215,7 @@ export function PreviewCanvas({ file }: PreviewCanvasProps) {
         {/* 加载状态 */}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/80">
-            <div className="text-sm text-muted-foreground">加载中...</div>
+            <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
           </div>
         )}
 

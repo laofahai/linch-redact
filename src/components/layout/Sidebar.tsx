@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { FilePlus, Files, Layers, Settings } from "lucide-react"
 import { FileList } from "@/components/features/files/FileList"
 import { PageList } from "@/components/features/pages/PageList"
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { open } from "@tauri-apps/plugin-dialog"
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const files = useFileStore((s) => s.files)
   const selectedFileId = useFileStore((s) => s.selectedFileId)
   const addFiles = useFileStore((s) => s.addFiles)
@@ -21,7 +23,7 @@ export function Sidebar() {
     const selected = await open({
       multiple: true,
       filters: [{ name: "PDF", extensions: ["pdf"] }],
-      title: "选择 PDF 文件",
+      title: t("sidebar.addFile"),
     })
     if (selected) {
       const paths = Array.isArray(selected) ? selected : [selected]
@@ -35,7 +37,7 @@ export function Sidebar() {
         <div className="flex items-center justify-between mb-2 shrink-0">
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <Files className="h-3 w-3" />
-            文件列表
+            {t("sidebar.fileList")}
           </h3>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleAddFile}>
             <FilePlus className="h-3.5 w-3.5" />
@@ -54,9 +56,11 @@ export function Sidebar() {
             <div className="flex items-center justify-between mb-2 shrink-0">
               <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                 <Layers className="h-3 w-3" />
-                页面列表
+                {t("sidebar.pageList")}
               </h3>
-              <span className="text-xs text-muted-foreground">{pageCount} 页</span>
+              <span className="text-xs text-muted-foreground">
+                {pageCount} {t("common.pages")}
+              </span>
             </div>
             <ScrollArea className="flex-1">
               <PageList hideTitle />
@@ -65,8 +69,7 @@ export function Sidebar() {
         </>
       )}
 
-      <Separator />
-      <div className="h-14 shrink-0 flex items-center px-2">
+      <div className="h-14 shrink-0 flex items-center px-2 border-t">
         <Button
           variant="ghost"
           size="sm"
@@ -74,7 +77,7 @@ export function Sidebar() {
           onClick={openSettingsDialog}
         >
           <Settings className="h-4 w-4" />
-          设置
+          {t("sidebar.settings")}
         </Button>
       </div>
     </aside>

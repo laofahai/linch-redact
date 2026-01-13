@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { nanoid } from "nanoid"
 import { invoke } from "@tauri-apps/api/core"
 import {
@@ -57,6 +58,7 @@ async function detectSensitiveContent(
 }
 
 export function DetectionPanel() {
+  const { t } = useTranslation()
   const selectedFile = useFileStore((s) => s.getSelectedFile())
   const currentPage = useEditorStore((s) => s.currentPage)
   const setCurrentPage = useEditorStore((s) => s.setCurrentPage)
@@ -94,7 +96,7 @@ export function DetectionPanel() {
 
     const enabledRules = rules.filter((r) => r.enabled)
     if (enabledRules.length === 0) {
-      toast.warning("请至少选择一个检测规则")
+      toast.warning(t("detection.selectAtLeastOneRule"))
       return
     }
 
@@ -108,7 +110,7 @@ export function DetectionPanel() {
       if (imagePageCount > 0 && !ocrReady) {
         setNeedsOcr(true)
         setScanning(false)
-        toast.warning(`检测到 ${imagePageCount} 页为图片，需 OCR 才能识别。请先安装/配置 OCR。`, {
+        toast.warning(t("detection.needsOcrWarning", { count: imagePageCount }), {
           duration: 5000,
         })
         return
@@ -125,13 +127,13 @@ export function DetectionPanel() {
       setHits(fileId, results)
 
       if (results.length === 0) {
-        toast.info("未发现敏感信息")
+        toast.info(t("detection.noResults"))
       } else {
-        toast.success(`发现 ${results.length} 处敏感信息`)
+        toast.success(t("detection.foundResults", { count: results.length }))
       }
     } catch (e) {
       console.error("Detection failed:", e)
-      toast.error("检测失败")
+      toast.error(t("detection.scanFailed"))
     } finally {
       setScanning(false)
     }
@@ -159,7 +161,7 @@ export function DetectionPanel() {
     if (hit.page !== currentPage) {
       setCurrentPage(hit.page)
     }
-    toast.success("已添加遮罩")
+    toast.success(t("detection.maskAdded"))
   }
 
   const removeHitMask = (hit: DetectionHit, hitIndex: number, e: React.MouseEvent) => {
@@ -197,7 +199,7 @@ export function DetectionPanel() {
     setHitMaskIds(newMaskIds)
     markAllHitsAdded(fileId)
     if (added > 0) {
-      toast.success(`已批量添加 ${added} 处遮罩`)
+      toast.success(t("detection.masksAdded", { count: added }))
     }
   }
 
@@ -224,7 +226,7 @@ export function DetectionPanel() {
         >
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
             <ShieldAlert className="h-3 w-3" />
-            敏感信息检测
+            {t("detection.title")}
           </h3>
         </div>
         <button
@@ -280,7 +282,7 @@ export function DetectionPanel() {
               disabled={scanning}
             >
               <Search className={`h-3.5 w-3.5 mr-1.5 ${scanning ? "animate-pulse" : ""}`} />
-              {scanning ? "扫描中..." : "扫描"}
+              {scanning ? t("common.scanning") : t("detection.scan")}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -296,12 +298,12 @@ export function DetectionPanel() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setScanScope("current")}>
                   <FileText className="h-3.5 w-3.5 mr-2" />
-                  当前页
+                  {t("common.currentPage")}
                   {scanScope === "current" && <Check className="h-3 w-3 ml-auto" />}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setScanScope("all")}>
                   <Files className="h-3.5 w-3.5 mr-2" />
-                  全部页
+                  {t("common.allPages")}
                   {scanScope === "all" && <Check className="h-3 w-3 ml-auto" />}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -312,7 +314,7 @@ export function DetectionPanel() {
             <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-2 space-y-2 shrink-0">
               <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>检测到图片页，需要 OCR 支持。请先安装/配置 OCR。</span>
+                <span>{t("detection.needsOcr")}</span>
               </div>
               <Button
                 variant="outline"
@@ -320,7 +322,7 @@ export function DetectionPanel() {
                 className="w-full h-7 text-xs"
                 onClick={openOcrDialog}
               >
-                配置 OCR
+                {t("detection.configureOcr")}
               </Button>
             </div>
           )}
@@ -329,7 +331,10 @@ export function DetectionPanel() {
             <div className="flex-1 min-h-0 flex flex-col">
               <div className="flex items-center justify-between shrink-0 mb-2">
                 <p className="text-sm text-muted-foreground">
-                  当前页 {currentPageHitsCount} 条 / 共 {hits.length} 条
+                  {t("detection.currentPageCount", {
+                    current: currentPageHitsCount,
+                    total: hits.length,
+                  })}
                 </p>
                 <Button
                   variant="ghost"
@@ -338,7 +343,7 @@ export function DetectionPanel() {
                   onClick={addAllHitsAsMasks}
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  全部添加
+                  {t("common.addAll")}
                 </Button>
               </div>
 
@@ -378,7 +383,7 @@ export function DetectionPanel() {
                             size="icon"
                             className="h-6 w-6 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={(e) => removeHitMask(hit, idx, e)}
-                            title="移除遮罩"
+                            title={t("detection.removeMask")}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -388,7 +393,7 @@ export function DetectionPanel() {
                             size="icon"
                             className="h-6 w-6 shrink-0"
                             onClick={(e) => addHitAsMask(hit, idx, e)}
-                            title="添加遮罩"
+                            title={t("detection.addMask")}
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
@@ -403,7 +408,7 @@ export function DetectionPanel() {
 
           {hits.length === 0 && !needsOcr && (
             <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
-              点击扫描按钮检测敏感信息
+              {t("detection.scanHint")}
             </div>
           )}
         </div>

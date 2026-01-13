@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { FilePlus, X, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useFileStore } from "@/stores"
@@ -9,6 +10,7 @@ interface FileListProps {
 }
 
 export function FileList({ hideTitle = false }: FileListProps) {
+  const { t } = useTranslation()
   const files = useFileStore((s) => s.files)
   const selectedFileId = useFileStore((s) => s.selectedFileId)
   const addFiles = useFileStore((s) => s.addFiles)
@@ -19,7 +21,7 @@ export function FileList({ hideTitle = false }: FileListProps) {
     const selected = await open({
       multiple: true,
       filters: [{ name: "PDF", extensions: ["pdf"] }],
-      title: "选择 PDF 文件",
+      title: t("sidebar.selectPdf"),
     })
     if (selected) {
       const paths = Array.isArray(selected) ? selected : [selected]
@@ -32,7 +34,7 @@ export function FileList({ hideTitle = false }: FileListProps) {
       {!hideTitle && (
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            文件列表
+            {t("sidebar.fileList")}
           </h3>
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleAddFile}>
             <FilePlus className="h-3.5 w-3.5" />
@@ -45,7 +47,7 @@ export function FileList({ hideTitle = false }: FileListProps) {
           className="cursor-pointer rounded-md border border-dashed p-4 text-center transition-colors hover:border-primary hover:bg-muted/50"
           onClick={handleAddFile}
         >
-          <p className="text-xs text-muted-foreground">点击选择 PDF 文件</p>
+          <p className="text-xs text-muted-foreground">{t("sidebar.addFile")}</p>
         </div>
       ) : (
         <div className="space-y-1">

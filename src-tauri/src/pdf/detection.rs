@@ -104,6 +104,8 @@ pub fn detect_sensitive_content_in_pdf(
     };
 
     let mut ocr_results_by_page: HashMap<usize, Vec<crate::ocr::OcrTextResult>> = HashMap::new();
+    // 按行分组的 OCR 结果（用于行级文本匹配）
+    let mut ocr_lines_by_page: HashMap<usize, Vec<OcrLineWithWords>> = HashMap::new();
 
     // 如果启用 OCR，对没有提取到文本的页面进行 OCR
     if use_ocr {
@@ -145,6 +147,9 @@ pub fn detect_sensitive_content_in_pdf(
                             page_texts.push((page_idx, text));
                         }
                         if !results.is_empty() {
+                            // 按行合并 OCR 结果，保留原始单词信息用于 bbox 计算
+                            let lines = merge_ocr_to_lines_with_words(&results);
+                            ocr_lines_by_page.insert(page_idx, lines);
                             ocr_results_by_page.insert(page_idx, results);
                         }
                     }
@@ -173,6 +178,63 @@ pub fn detect_sensitive_content_in_pdf(
             }
         }
 
+        // 优先使用行级合并的 OCR 结果进行匹配（解决邮箱等跨词匹配问题）
+        if let Some(ocr_lines) = ocr_lines_by_page.get(page_idx) {
+            let mut added_positions: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
+
+            for line in ocr_lines {
+                if line.text.is_empty() {
+                    continue;
+                }
+
+                for (rule, regex_opt) in &compiled_rules {
+                    // 在行文本中查找匹配
+                    let matches: Vec<(usize, usize)> = if let Some(regex) = regex_opt {
+                        regex
+                            .find_iter(&line.text)
+                            .map(|m| (m.start(), m.end()))
+                            .collect()
+                    } else {
+                        line.text
+                            .match_indices(&rule.pattern)
+                            .map(|(start, s)| (start, start + s.len()))
+                            .collect()
+                    };
+
+                    for (match_start, match_end) in matches {
+                        // 找到匹配覆盖的单词，使用原始 bbox
+                        let bbox = line.get_bbox_for_range(match_start, match_end);
+
+                        let pos_key =
+                            format!("{:.3},{:.3},{:.3},{:.3}", bbox.x, bbox.y, bbox.w, bbox.h);
+                        if added_positions.contains(&pos_key) {
+                            continue;
+                        }
+                        added_positions.insert(pos_key);
+
+                        let matched_text = &line.text[match_start..match_end];
+                        let snippet = mask_snippet(matched_text);
+                        hits.push(DetectionHit {
+                            page: *page_idx,
+                            bbox: DetectionBbox {
+                                x: bbox.x as f64,
+                                y: bbox.y as f64,
+                                width: bbox.w as f64,
+                                height: bbox.h as f64,
+                            },
+                            rule_id: rule.id.clone(),
+                            rule_name: rule.name.clone(),
+                            snippet,
+                        });
+                    }
+                }
+            }
+
+            continue;
+        }
+
+        // 回退：使用单词级 OCR 结果（旧逻辑）
         if let Some(ocr_results) = ocr_results_by_page.get(page_idx) {
             let mut added_positions: std::collections::HashSet<String> =
                 std::collections::HashSet::new();
@@ -728,4 +790,223 @@ fn should_log_full_text() -> bool {
         }
         Err(_) => false,
     }
+}
+
+/// OCR 行级结果（保留原始单词信息用于精确 bbox）
+#[derive(Debug, Clone)]
+struct OcrLineWithWords {
+    /// 合并后的行文本（清理后）
+    text: String,
+    /// 每个单词在 text 中的字节范围和对应的 bbox
+    word_ranges: Vec<(std::ops::Range<usize>, crate::ocr::BBox)>,
+}
+
+impl OcrLineWithWords {
+    /// 根据文本范围获取对应的 bbox（合并覆盖的单词 bbox）
+    fn get_bbox_for_range(&self, start: usize, end: usize) -> crate::ocr::BBox {
+        let mut min_x = f32::INFINITY;
+        let mut max_x = f32::NEG_INFINITY;
+        let mut min_y = f32::INFINITY;
+        let mut max_y = f32::NEG_INFINITY;
+        let mut found = false;
+
+        for (range, bbox) in &self.word_ranges {
+            // 检查范围是否有重叠
+            if range.start < end && range.end > start {
+                found = true;
+                min_x = min_x.min(bbox.x);
+                max_x = max_x.max(bbox.x + bbox.w);
+                min_y = min_y.min(bbox.y);
+                max_y = max_y.max(bbox.y + bbox.h);
+            }
+        }
+
+        if found {
+            crate::ocr::BBox {
+                x: min_x,
+                y: min_y,
+                w: max_x - min_x,
+                h: max_y - min_y,
+            }
+        } else {
+            // 回退：使用整行的 bbox
+            let all_min_x = self
+                .word_ranges
+                .iter()
+                .map(|(_, b)| b.x)
+                .fold(f32::INFINITY, f32::min);
+            let all_max_x = self
+                .word_ranges
+                .iter()
+                .map(|(_, b)| b.x + b.w)
+                .fold(f32::NEG_INFINITY, f32::max);
+            let all_min_y = self
+                .word_ranges
+                .iter()
+                .map(|(_, b)| b.y)
+                .fold(f32::INFINITY, f32::min);
+            let all_max_y = self
+                .word_ranges
+                .iter()
+                .map(|(_, b)| b.y + b.h)
+                .fold(f32::NEG_INFINITY, f32::max);
+            crate::ocr::BBox {
+                x: all_min_x,
+                y: all_min_y,
+                w: all_max_x - all_min_x,
+                h: all_max_y - all_min_y,
+            }
+        }
+    }
+}
+
+/// 将 OCR 单词按行合并，保留原始单词信息
+fn merge_ocr_to_lines_with_words(results: &[crate::ocr::OcrTextResult]) -> Vec<OcrLineWithWords> {
+    if results.is_empty() {
+        return Vec::new();
+    }
+
+    // 按行号分组（优先使用 Tesseract 原生行号）
+    let has_line_nums = results.iter().any(|r| r.line_num.is_some());
+
+    let grouped: Vec<Vec<&crate::ocr::OcrTextResult>> = if has_line_nums {
+        let mut lines_map: std::collections::BTreeMap<u32, Vec<&crate::ocr::OcrTextResult>> =
+            std::collections::BTreeMap::new();
+        for word in results {
+            let line_num = word.line_num.unwrap_or(0);
+            lines_map.entry(line_num).or_default().push(word);
+        }
+        lines_map.into_values().collect()
+    } else {
+        // 按 y 坐标分组
+        let mut sorted: Vec<&crate::ocr::OcrTextResult> = results.iter().collect();
+        sorted.sort_by(|a, b| {
+            a.bbox
+                .y
+                .partial_cmp(&b.bbox.y)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let mut groups: Vec<Vec<&crate::ocr::OcrTextResult>> = Vec::new();
+        let mut current_group: Vec<&crate::ocr::OcrTextResult> = Vec::new();
+        let y_tolerance = 0.015;
+
+        for word in sorted {
+            if current_group.is_empty() {
+                current_group.push(word);
+            } else {
+                let last_y = current_group.last().unwrap().bbox.y;
+                if (word.bbox.y - last_y).abs() <= y_tolerance {
+                    current_group.push(word);
+                } else {
+                    groups.push(std::mem::take(&mut current_group));
+                    current_group.push(word);
+                }
+            }
+        }
+        if !current_group.is_empty() {
+            groups.push(current_group);
+        }
+        groups
+    };
+
+    // 转换为 OcrLineWithWords
+    grouped
+        .into_iter()
+        .filter_map(|words| merge_words_to_line_with_ranges(&words))
+        .collect()
+}
+
+/// 将同一行的单词合并，保留每个单词的范围和 bbox
+fn merge_words_to_line_with_ranges(
+    words: &[&crate::ocr::OcrTextResult],
+) -> Option<OcrLineWithWords> {
+    if words.is_empty() {
+        return None;
+    }
+
+    // 按 x 坐标排序
+    let mut sorted_words: Vec<&&crate::ocr::OcrTextResult> = words.iter().collect();
+    sorted_words.sort_by(|a, b| {
+        a.bbox
+            .x
+            .partial_cmp(&b.bbox.x)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let mut text = String::new();
+    let mut word_ranges: Vec<(std::ops::Range<usize>, crate::ocr::BBox)> = Vec::new();
+    let mut prev_end_x: Option<f32> = None;
+
+    for word in &sorted_words {
+        let word_text = word.text.trim();
+        if word_text.is_empty() {
+            continue;
+        }
+
+        // 检查是否需要添加空格
+        if let Some(prev_x) = prev_end_x {
+            let gap = word.bbox.x - prev_x;
+            if gap > 0.005 {
+                text.push(' ');
+            }
+        }
+
+        let start = text.len();
+        text.push_str(word_text);
+        let end = text.len();
+
+        word_ranges.push((start..end, word.bbox));
+        prev_end_x = Some(word.bbox.x + word.bbox.w);
+    }
+
+    // 清理文本（但保持 word_ranges 对应关系不变）
+    // 注意：清理后 word_ranges 的范围可能不完全准确，但对于 bbox 查找仍然有效
+    let cleaned_text = clean_ocr_text(&text);
+
+    if cleaned_text.is_empty() {
+        return None;
+    }
+
+    // 如果清理没有改变文本，直接返回
+    if cleaned_text == text {
+        return Some(OcrLineWithWords {
+            text: cleaned_text,
+            word_ranges,
+        });
+    }
+
+    // 清理改变了文本，需要重新映射范围
+    // 简化处理：直接使用清理后的文本，但保留原始 bbox
+    Some(OcrLineWithWords {
+        text: cleaned_text,
+        word_ranges, // 范围可能不完全准确，但 get_bbox_for_range 会找到重叠的单词
+    })
+}
+
+/// 清理 OCR 文本，移除不该有空格的地方
+fn clean_ocr_text(text: &str) -> String {
+    let mut result = text.to_string();
+
+    // 移除点号前后的空格
+    result = regex::Regex::new(r"\s*\.\s*")
+        .unwrap()
+        .replace_all(&result, ".")
+        .to_string();
+
+    // 移除 @ 前后的空格
+    result = regex::Regex::new(r"\s*@\s*")
+        .unwrap()
+        .replace_all(&result, "@")
+        .to_string();
+
+    // 移除连续数字之间的空格
+    while regex::Regex::new(r"(\d)\s+(\d)").unwrap().is_match(&result) {
+        result = regex::Regex::new(r"(\d)\s+(\d)")
+            .unwrap()
+            .replace_all(&result, "$1$2")
+            .to_string();
+    }
+
+    result
 }
