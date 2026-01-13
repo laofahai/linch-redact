@@ -413,7 +413,15 @@ pub fn batch_search_text_in_page(
         let mut results = Vec::new();
 
         for segments in search.iter(PdfSearchDirection::SearchForward) {
+            // 合并所有 segments 为一个完整的边界框
+            let mut min_left = f64::MAX;
+            let mut min_bottom = f64::MAX;
+            let mut max_right = f64::MIN;
+            let mut max_top = f64::MIN;
+            let mut has_segments = false;
+
             for segment in segments.iter() {
+                has_segments = true;
                 let bounds = segment.bounds();
 
                 let pdf_left = bounds.left().value as f64;
@@ -421,10 +429,17 @@ pub fn batch_search_text_in_page(
                 let pdf_right = bounds.right().value as f64;
                 let pdf_top = bounds.top().value as f64;
 
-                let x = pdf_left / page_width;
-                let y = 1.0 - (pdf_top / page_height);
-                let width = (pdf_right - pdf_left) / page_width;
-                let height = (pdf_top - pdf_bottom) / page_height;
+                min_left = min_left.min(pdf_left);
+                min_bottom = min_bottom.min(pdf_bottom);
+                max_right = max_right.max(pdf_right);
+                max_top = max_top.max(pdf_top);
+            }
+
+            if has_segments {
+                let x = min_left / page_width;
+                let y = 1.0 - (max_top / page_height);
+                let width = (max_right - min_left) / page_width;
+                let height = (max_top - min_bottom) / page_height;
 
                 let padding = 0.003;
                 results.push(TextSearchResult {
