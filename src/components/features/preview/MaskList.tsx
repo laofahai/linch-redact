@@ -4,25 +4,19 @@ import { useEditorStore } from "@/stores"
 
 export function MaskList() {
   const currentPage = useEditorStore((s) => s.currentPage)
-  const masksByPage = useEditorStore((s) => s.masksByPage)
+  const getCurrentMasks = useEditorStore((s) => s.getCurrentMasks)
   const removeMask = useEditorStore((s) => s.removeMask)
   const clearPageMasks = useEditorStore((s) => s.clearPageMasks)
 
-  const masks = masksByPage[currentPage] ?? []
+  const masks = getCurrentMasks()
 
   if (masks.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground">
-        当前页无遮盖标记
-      </div>
-    )
+    return <div className="text-sm text-muted-foreground">当前页无遮盖标记</div>
   }
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-muted-foreground">
-        遮盖区域: {masks.length}
-      </span>
+      <span className="text-sm text-muted-foreground">遮盖区域: {masks.length}</span>
       <div className="flex items-center gap-1">
         {masks.map((mask, index) => (
           <Button

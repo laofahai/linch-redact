@@ -30,7 +30,7 @@ interface CleaningOptions {
 interface ProcessRequest {
   files: FileProcessRequest[]
   output_directory: string
-  suffix: string
+  prefix: string
   mode: string
   cleaning: CleaningOptions
 }

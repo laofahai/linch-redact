@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { nanoid } from "nanoid"
 import { invoke } from "@tauri-apps/api/core"
 import {
@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { useDetectionRulesStore, useFileStore, useEditorStore, useOcrStore } from "@/stores"
+import { Trash2 } from "lucide-react"
 import type { Rule, DetectionHit, Mask, PdfAnalysis } from "@/types"
 
 const ruleIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -57,7 +59,9 @@ async function detectSensitiveContent(
 export function DetectionPanel() {
   const selectedFile = useFileStore((s) => s.getSelectedFile())
   const currentPage = useEditorStore((s) => s.currentPage)
+  const setCurrentPage = useEditorStore((s) => s.setCurrentPage)
   const addMask = useEditorStore((s) => s.addMask)
+  const removeMask = useEditorStore((s) => s.removeMask)
   const engineStatus = useOcrStore((s) => s.engineStatus)
   const currentEngine = useOcrStore((s) => s.currentEngine)
   const openOcrDialog = useOcrStore((s) => s.openDialog)
@@ -69,24 +73,24 @@ export function DetectionPanel() {
 
   const rules = useDetectionRulesStore((s) => s.rules)
   const toggleRule = useDetectionRulesStore((s) => s.toggleRule)
-  const [hits, setHits] = useState<DetectionHit[]>([])
-  const [addedHits, setAddedHits] = useState<Set<number>>(new Set())
+  const getHits = useDetectionRulesStore((s) => s.getHits)
+  const getAddedHits = useDetectionRulesStore((s) => s.getAddedHits)
+  const setHits = useDetectionRulesStore((s) => s.setHits)
+  const markHitAdded = useDetectionRulesStore((s) => s.markHitAdded)
+  const unmarkHitAdded = useDetectionRulesStore((s) => s.unmarkHitAdded)
+  const markAllHitsAdded = useDetectionRulesStore((s) => s.markAllHitsAdded)
+
   const [scanning, setScanning] = useState(false)
   const [expanded, setExpanded] = useState(true)
-  const [_hasImagePages, setHasImagePages] = useState(false)
   const [needsOcr, setNeedsOcr] = useState(false)
   const [scanScope, setScanScope] = useState<"current" | "all">("all")
 
-  // 切换文件时清空检测结果
-  useEffect(() => {
-    setHits([])
-    setAddedHits(new Set())
-    setNeedsOcr(false)
-    setHasImagePages(false)
-  }, [selectedFile?.id])
+  const fileId = selectedFile?.id ?? ""
+  const hits = getHits(fileId)
+  const addedHits = getAddedHits(fileId)
 
   const runDetection = async () => {
-    if (!selectedFile?.path) return
+    if (!selectedFile?.path || !fileId) return
 
     const enabledRules = rules.filter((r) => r.enabled)
     if (enabledRules.length === 0) {
@@ -95,14 +99,11 @@ export function DetectionPanel() {
     }
 
     setScanning(true)
-    setHits([])
-    setAddedHits(new Set())
     setNeedsOcr(false)
 
     try {
       const analysis = await analyzePdf(selectedFile.path)
       const imagePageCount = analysis.pageTypes.filter((t) => t === "image_based").length
-      setHasImagePages(imagePageCount > 0)
 
       if (imagePageCount > 0 && !ocrReady) {
         setNeedsOcr(true)
@@ -121,7 +122,7 @@ export function DetectionPanel() {
         useOcr,
         pageIndices
       )
-      setHits(results)
+      setHits(fileId, results)
 
       if (results.length === 0) {
         toast.info("未发现敏感信息")
@@ -136,40 +137,74 @@ export function DetectionPanel() {
     }
   }
 
-  const addHitAsMask = (hit: DetectionHit, hitIndex: number) => {
+  // 存储每个 hit 对应的 mask id，用于删除
+  const [hitMaskIds, setHitMaskIds] = useState<Map<number, string>>(new Map())
+
+  const addHitAsMask = (hit: DetectionHit, hitIndex: number, e: React.MouseEvent) => {
+    e.stopPropagation()
     if (addedHits.has(hitIndex)) return
 
+    const maskId = nanoid()
     const mask: Mask = {
-      id: nanoid(),
+      id: maskId,
       x: hit.bbox.x,
       y: hit.bbox.y,
       width: hit.bbox.width,
       height: hit.bbox.height,
     }
-    addMask(hit.page, mask)
-    setAddedHits((prev) => new Set(prev).add(hitIndex))
+    addMask(hit.page, mask, fileId)
+    markHitAdded(fileId, hitIndex)
+    setHitMaskIds((prev) => new Map(prev).set(hitIndex, maskId))
+    // 跳转到对应页面以显示添加的遮罩
+    if (hit.page !== currentPage) {
+      setCurrentPage(hit.page)
+    }
     toast.success("已添加遮罩")
+  }
+
+  const removeHitMask = (hit: DetectionHit, hitIndex: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const maskId = hitMaskIds.get(hitIndex)
+    if (maskId) {
+      removeMask(hit.page, maskId, fileId)
+      setHitMaskIds((prev) => {
+        const newMap = new Map(prev)
+        newMap.delete(hitIndex)
+        return newMap
+      })
+    }
+    // 更新状态为未添加
+    unmarkHitAdded(fileId, hitIndex)
   }
 
   const addAllHitsAsMasks = () => {
     let added = 0
-    const newAdded = new Set(addedHits)
+    const newMaskIds = new Map(hitMaskIds)
     hits.forEach((hit, idx) => {
-      if (newAdded.has(idx)) return
+      if (addedHits.has(idx)) return
+      const maskId = nanoid()
       const mask: Mask = {
-        id: nanoid(),
+        id: maskId,
         x: hit.bbox.x,
         y: hit.bbox.y,
         width: hit.bbox.width,
         height: hit.bbox.height,
       }
-      addMask(hit.page, mask)
-      newAdded.add(idx)
+      addMask(hit.page, mask, fileId)
+      newMaskIds.set(idx, maskId)
       added++
     })
-    setAddedHits(newAdded)
+    setHitMaskIds(newMaskIds)
+    markAllHitsAdded(fileId)
     if (added > 0) {
       toast.success(`已批量添加 ${added} 处遮罩`)
+    }
+  }
+
+  const handleHitClick = (hit: DetectionHit) => {
+    // 只跳转页面，不添加遮罩
+    if (hit.page !== currentPage) {
+      setCurrentPage(hit.page)
     }
   }
 
@@ -177,13 +212,12 @@ export function DetectionPanel() {
     return null
   }
 
-  const currentPageHits = hits
-    .map((hit, idx) => ({ hit, originalIndex: idx }))
-    .filter(({ hit }) => hit.page === currentPage)
+  // 按页分组统计
+  const currentPageHitsCount = hits.filter((h) => h.page === currentPage).length
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between shrink-0">
         <div
           className="flex items-center gap-1.5 cursor-pointer flex-1"
           onClick={() => setExpanded(!expanded)}
@@ -214,8 +248,8 @@ export function DetectionPanel() {
       </div>
 
       {expanded && (
-        <>
-          <div className="flex flex-wrap gap-1.5">
+        <div className="flex-1 min-h-0 flex flex-col mt-3 space-y-3">
+          <div className="flex flex-wrap gap-1.5 shrink-0">
             {rules.map((rule) => {
               const Icon = ruleIcons[rule.id] || Search
               return (
@@ -237,7 +271,7 @@ export function DetectionPanel() {
             })}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -275,7 +309,7 @@ export function DetectionPanel() {
           </div>
 
           {needsOcr && (
-            <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-2 space-y-2">
+            <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-2 space-y-2 shrink-0">
               <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>检测到图片页，需要 OCR 支持。请先安装/配置 OCR。</span>
@@ -292,10 +326,10 @@ export function DetectionPanel() {
           )}
 
           {hits.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            <div className="flex-1 min-h-0 flex flex-col">
+              <div className="flex items-center justify-between shrink-0 mb-2">
                 <p className="text-sm text-muted-foreground">
-                  当前页: {currentPageHits.length} 条 / 共 {hits.length} 条
+                  当前页 {currentPageHitsCount} 条 / 共 {hits.length} 条
                 </p>
                 <Button
                   variant="ghost"
@@ -308,44 +342,71 @@ export function DetectionPanel() {
                 </Button>
               </div>
 
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {currentPageHits.map(({ hit, originalIndex }) => {
-                  const isAdded = addedHits.has(originalIndex)
-                  return (
-                    <div
-                      key={originalIndex}
-                      className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                        isAdded ? "bg-green-50 dark:bg-green-950/30" : "bg-muted/50"
-                      }`}
-                    >
-                      <div className="flex-1 truncate">
-                        <span className="font-medium">{hit.ruleName}</span>
-                        <span className="text-muted-foreground ml-1.5">{hit.snippet}</span>
-                      </div>
-                      {isAdded ? (
-                        <div className="h-6 w-6 shrink-0 flex items-center justify-center text-green-600">
-                          <Check className="h-4 w-4" />
+              <ScrollArea className="flex-1">
+                <div className="space-y-1 pr-2">
+                  {hits.map((hit, idx) => {
+                    const isAdded = addedHits.has(idx)
+                    const isCurrentPage = hit.page === currentPage
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => handleHitClick(hit)}
+                        className={cn(
+                          "flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors cursor-pointer",
+                          isAdded
+                            ? "bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/50"
+                            : isCurrentPage
+                              ? "bg-primary/10 hover:bg-primary/15"
+                              : "bg-muted/50 hover:bg-muted"
+                        )}
+                      >
+                        <div className="flex-1 truncate">
+                          <span
+                            className={cn(
+                              "text-xs mr-1.5",
+                              isCurrentPage ? "text-primary font-medium" : "text-muted-foreground"
+                            )}
+                          >
+                            P{hit.page + 1}
+                          </span>
+                          <span className="font-medium">{hit.ruleName}</span>
+                          <span className="text-muted-foreground ml-1.5">{hit.snippet}</span>
                         </div>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0"
-                          onClick={() => addHitAsMask(hit, originalIndex)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  )
-                })}
-                {currentPageHits.length === 0 && hits.length > 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">当前页无命中</p>
-                )}
-              </div>
+                        {isAdded ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => removeHitMask(hit, idx, e)}
+                            title="移除遮罩"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={(e) => addHitAsMask(hit, idx, e)}
+                            title="添加遮罩"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
             </div>
           )}
-        </>
+
+          {hits.length === 0 && !needsOcr && (
+            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
+              点击扫描按钮检测敏感信息
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

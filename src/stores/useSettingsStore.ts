@@ -23,7 +23,7 @@ const defaultSettings: ProcessingSettings = {
     documentInfo: true,
     xmpMetadata: true,
     hiddenData: true,
-    annotations: false,  // 默认不删除注释（印章等可能是注释）
+    annotations: false, // 默认不删除注释（印章等可能是注释）
     forms: false,
     attachments: true,
     javascript: true,
@@ -35,7 +35,6 @@ const defaultSettings: ProcessingSettings = {
   },
   output: {
     directory: "",
-    suffix: "_redacted",
   },
 }
 

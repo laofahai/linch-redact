@@ -59,40 +59,51 @@ export const useFileStore = create<FileStore>((set, get) => ({
         }
       }
 
+      const newSelectedId = state.selectedFileId ?? newFiles[0]?.id ?? null
+
+      // 如果是第一个文件，设置 editor store 的 currentFileId
+      if (!state.selectedFileId && newSelectedId) {
+        useEditorStore.getState().setCurrentFileId(newSelectedId)
+      }
+
       return {
         files: updated,
-        selectedFileId: state.selectedFileId ?? newFiles[0]?.id ?? null,
+        selectedFileId: newSelectedId,
       }
     })
   },
 
   removeFile: (id) => {
-    // 清除该文件关联的所有 masks
-    useEditorStore.getState().clearAllMasks()
-    useEditorStore.getState().setCurrentPage(0)
+    // 清除该文件关联的 masks
+    useEditorStore.getState().clearFileMasks(id)
 
     set((state) => {
       const files = state.files.filter((f) => f.id !== id)
-      const selectedFileId =
+      const newSelectedId =
         state.selectedFileId === id ? (files[0]?.id ?? null) : state.selectedFileId
-      return { files, selectedFileId }
+
+      // 更新 editor store 的 currentFileId
+      if (newSelectedId !== state.selectedFileId) {
+        useEditorStore.getState().setCurrentFileId(newSelectedId)
+      }
+
+      return { files, selectedFileId: newSelectedId }
     })
   },
 
   clearFiles: () => {
     // 清除所有 masks 和重置编辑器状态
     useEditorStore.getState().clearAllMasks()
-    useEditorStore.getState().setCurrentPage(0)
+    useEditorStore.getState().setCurrentFileId(null)
 
     set({ files: [], selectedFileId: null })
   },
 
   selectFile: (id) => {
     const { selectedFileId } = get()
-    // 切换到不同文件时，清除 masks 和重置页码
     if (id !== selectedFileId) {
-      useEditorStore.getState().clearAllMasks()
-      useEditorStore.getState().setCurrentPage(0)
+      // 切换文件时更新 editor store 的 currentFileId
+      useEditorStore.getState().setCurrentFileId(id)
     }
     set({ selectedFileId: id })
   },

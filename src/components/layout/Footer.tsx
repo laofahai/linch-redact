@@ -18,7 +18,7 @@ export function Footer() {
     currentEngine === "paddle"
       ? (engineStatus?.paddle.installed ?? false)
       : (engineStatus?.tesseract.installed ?? false)
-  const masksByPage = useEditorStore((s) => s.masksByPage)
+  const getMasksByPage = useEditorStore((s) => s.getMasksByPage)
   const [processing, setProcessing] = useState(false)
 
   const hasFiles = files.length > 0
@@ -51,26 +51,29 @@ export function Footer() {
 
     try {
       const request = {
-        files: files.map((file) => ({
-          path: file.path,
-          pages: file.pages.map((p) => ({
-            index: p.index,
-            action: p.action,
-          })),
-          masks_by_page: Object.fromEntries(
-            Object.entries(masksByPage).map(([pageIdx, masks]) => [
-              parseInt(pageIdx),
-              masks.map((m: { x: number; y: number; width: number; height: number }) => ({
-                x: m.x,
-                y: m.y,
-                width: m.width,
-                height: m.height,
-              })),
-            ])
-          ),
-        })),
+        files: files.map((file) => {
+          const fileMasks = getMasksByPage(file.id)
+          return {
+            path: file.path,
+            pages: file.pages.map((p) => ({
+              index: p.index,
+              action: p.action,
+            })),
+            masks_by_page: Object.fromEntries(
+              Object.entries(fileMasks).map(([pageIdx, masks]) => [
+                parseInt(pageIdx),
+                masks.map((m: { x: number; y: number; width: number; height: number }) => ({
+                  x: m.x,
+                  y: m.y,
+                  width: m.width,
+                  height: m.height,
+                })),
+              ])
+            ),
+          }
+        }),
         output_directory: settings.output.directory,
-        suffix: settings.output.suffix || "_redacted",
+        prefix: "redacted_",
         mode: settings.redactionMode,
         cleaning: settings.cleaning,
       }
@@ -82,7 +85,17 @@ export function Footer() {
       if (result.success) {
         toast.success(`处理完成，共处理 ${result.processed_files.length} 个文件`)
       } else {
-        toast.error(`处理失败，${result.errors.length} 个文件出错`)
+        // 显示详细的错误信息给用户
+        const errorCount = result.errors.length
+        if (errorCount === 1) {
+          toast.error(result.errors[0])
+        } else {
+          toast.error(`处理失败，${errorCount} 个文件出错`)
+          // 逐个显示错误详情
+          result.errors.forEach((err) => {
+            toast.error(err, { duration: 8000 })
+          })
+        }
         result.errors.forEach((err) => console.error(err))
       }
     } catch (e) {

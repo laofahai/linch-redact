@@ -188,3 +188,17 @@ html {
   display: block !important;
   min-width: 0 !important;
 }
+
+/* 禁用文本选择（桌面应用体验） */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* 允许输入框和文本区域选择 */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}

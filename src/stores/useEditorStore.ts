@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { nanoid } from "nanoid"
-import type { Mask, MasksByPage } from "@/types"
+import type { Mask, MasksByPage, MasksByFile } from "@/types"
 
 interface DrawingState {
   startX: number
@@ -11,13 +11,18 @@ interface DrawingState {
 
 interface EditorStore {
   currentPage: number
-  masksByPage: MasksByPage
+  currentFileId: string | null
+  masksByFile: MasksByFile
   drawing: DrawingState | null
   zoom: number
   selectedMaskId: string | null
 
   // 计算属性
   getCurrentMasks: () => Mask[]
+  getMasksByPage: (fileId: string) => MasksByPage
+
+  // 文件切换
+  setCurrentFileId: (fileId: string | null) => void
 
   // 页面导航
   setCurrentPage: (page: number) => void
@@ -31,9 +36,10 @@ interface EditorStore {
   cancelDrawing: () => void
 
   // 遮盖框管理
-  addMask: (page: number, mask: Mask) => void
-  removeMask: (page: number, maskId: string) => void
+  addMask: (page: number, mask: Mask, fileId?: string) => void
+  removeMask: (page: number, maskId: string, fileId?: string) => void
   clearPageMasks: (page: number) => void
+  clearFileMasks: (fileId: string) => void
   clearAllMasks: () => void
 
   // 遮盖框选择和调整
@@ -50,24 +56,36 @@ interface EditorStore {
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
   currentPage: 0,
-  masksByPage: {},
+  currentFileId: null,
+  masksByFile: {},
   drawing: null,
   zoom: 1,
   selectedMaskId: null,
 
   getCurrentMasks: () => {
-    const { masksByPage, currentPage } = get()
-    return masksByPage[currentPage] ?? []
+    const { masksByFile, currentFileId, currentPage } = get()
+    if (!currentFileId) return []
+    return masksByFile[currentFileId]?.[currentPage] ?? []
+  },
+
+  getMasksByPage: (fileId: string) => {
+    const { masksByFile } = get()
+    return masksByFile[fileId] ?? {}
+  },
+
+  setCurrentFileId: (fileId) => {
+    set({ currentFileId: fileId, currentPage: 0, drawing: null, selectedMaskId: null })
   },
 
   setCurrentPage: (page) => {
-    set({ currentPage: page, drawing: null })
+    set({ currentPage: page, drawing: null, selectedMaskId: null })
   },
 
   nextPage: (maxPage) => {
     set((state) => ({
       currentPage: Math.min(state.currentPage + 1, maxPage - 1),
       drawing: null,
+      selectedMaskId: null,
     }))
   },
 
@@ -75,6 +93,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((state) => ({
       currentPage: Math.max(state.currentPage - 1, 0),
       drawing: null,
+      selectedMaskId: null,
     }))
   },
 
@@ -94,8 +113,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   finishDrawing: () => {
-    const { drawing, currentPage } = get()
-    if (!drawing) return
+    const { drawing, currentPage, currentFileId } = get()
+    if (!drawing || !currentFileId) return
 
     const x = Math.min(drawing.startX, drawing.currentX)
     const y = Math.min(drawing.startY, drawing.currentY)
@@ -116,46 +135,90 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       height,
     }
 
-    set((state) => ({
-      drawing: null,
-      masksByPage: {
-        ...state.masksByPage,
-        [currentPage]: [...(state.masksByPage[currentPage] ?? []), mask],
-      },
-    }))
+    set((state) => {
+      const fileMasks = state.masksByFile[currentFileId] ?? {}
+      const pageMasks = fileMasks[currentPage] ?? []
+      return {
+        drawing: null,
+        masksByFile: {
+          ...state.masksByFile,
+          [currentFileId]: {
+            ...fileMasks,
+            [currentPage]: [...pageMasks, mask],
+          },
+        },
+      }
+    })
   },
 
   cancelDrawing: () => {
     set({ drawing: null })
   },
 
-  addMask: (page, mask) => {
-    set((state) => ({
-      masksByPage: {
-        ...state.masksByPage,
-        [page]: [...(state.masksByPage[page] ?? []), mask],
-      },
-    }))
+  addMask: (page, mask, fileId) => {
+    const targetFileId = fileId ?? get().currentFileId
+    if (!targetFileId) return
+
+    set((state) => {
+      const fileMasks = state.masksByFile[targetFileId] ?? {}
+      const pageMasks = fileMasks[page] ?? []
+      return {
+        masksByFile: {
+          ...state.masksByFile,
+          [targetFileId]: {
+            ...fileMasks,
+            [page]: [...pageMasks, mask],
+          },
+        },
+      }
+    })
   },
 
-  removeMask: (page, maskId) => {
-    set((state) => ({
-      masksByPage: {
-        ...state.masksByPage,
-        [page]: (state.masksByPage[page] ?? []).filter((m) => m.id !== maskId),
-      },
-    }))
+  removeMask: (page, maskId, fileId) => {
+    const targetFileId = fileId ?? get().currentFileId
+    if (!targetFileId) return
+
+    set((state) => {
+      const fileMasks = state.masksByFile[targetFileId] ?? {}
+      const pageMasks = fileMasks[page] ?? []
+      return {
+        masksByFile: {
+          ...state.masksByFile,
+          [targetFileId]: {
+            ...fileMasks,
+            [page]: pageMasks.filter((m) => m.id !== maskId),
+          },
+        },
+      }
+    })
   },
 
   clearPageMasks: (page) => {
+    const { currentFileId } = get()
+    if (!currentFileId) return
+
     set((state) => {
-      const { [page]: _, ...rest } = state.masksByPage
-      return { masksByPage: rest }
+      const fileMasks = { ...state.masksByFile[currentFileId] }
+      delete fileMasks[page]
+      return {
+        masksByFile: {
+          ...state.masksByFile,
+          [currentFileId]: fileMasks,
+        },
+      }
+    })
+  },
+
+  clearFileMasks: (fileId) => {
+    set((state) => {
+      const newMasks = { ...state.masksByFile }
+      delete newMasks[fileId]
+      return { masksByFile: newMasks, selectedMaskId: null }
     })
   },
 
   clearAllMasks: () => {
-    set({ masksByPage: {}, selectedMaskId: null })
+    set({ masksByFile: {}, selectedMaskId: null })
   },
 
   selectMask: (maskId) => {
@@ -163,32 +226,41 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   resizeMask: (page, maskId, newBounds) => {
+    const { currentFileId } = get()
+    if (!currentFileId) return
+
     set((state) => {
-      const masks = state.masksByPage[page] ?? []
-      const updatedMasks = masks.map((m) =>
-        m.id === maskId ? { ...m, ...newBounds } : m
-      )
+      const fileMasks = state.masksByFile[currentFileId] ?? {}
+      const pageMasks = fileMasks[page] ?? []
+      const updatedMasks = pageMasks.map((m) => (m.id === maskId ? { ...m, ...newBounds } : m))
       return {
-        masksByPage: {
-          ...state.masksByPage,
-          [page]: updatedMasks,
+        masksByFile: {
+          ...state.masksByFile,
+          [currentFileId]: {
+            ...fileMasks,
+            [page]: updatedMasks,
+          },
         },
       }
     })
   },
 
   deleteSelectedMask: () => {
-    const { selectedMaskId, currentPage, masksByPage } = get()
-    if (!selectedMaskId) return
+    const { selectedMaskId, currentPage, currentFileId, masksByFile } = get()
+    if (!selectedMaskId || !currentFileId) return
 
-    const masks = masksByPage[currentPage] ?? []
-    const updatedMasks = masks.filter((m) => m.id !== selectedMaskId)
+    const fileMasks = masksByFile[currentFileId] ?? {}
+    const pageMasks = fileMasks[currentPage] ?? []
+    const updatedMasks = pageMasks.filter((m) => m.id !== selectedMaskId)
 
     set({
       selectedMaskId: null,
-      masksByPage: {
-        ...masksByPage,
-        [currentPage]: updatedMasks,
+      masksByFile: {
+        ...masksByFile,
+        [currentFileId]: {
+          ...fileMasks,
+          [currentPage]: updatedMasks,
+        },
       },
     })
   },

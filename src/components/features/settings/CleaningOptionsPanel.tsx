@@ -21,9 +21,9 @@ export function CleaningOptionsPanel() {
   const enabledCount = cleaningOptions.filter((opt) => settings.cleaning[opt.key]).length
 
   return (
-    <div className="space-y-2">
+    <div className={expanded ? "space-y-2" : ""}>
       <div
-        className="flex items-center justify-between cursor-pointer"
+        className="flex items-center justify-between cursor-pointer h-7"
         onClick={() => setExpanded(!expanded)}
       >
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">

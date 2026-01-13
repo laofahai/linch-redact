@@ -66,7 +66,7 @@ export function Sidebar() {
       )}
 
       <Separator />
-      <div className="shrink-0 p-2">
+      <div className="h-14 shrink-0 flex items-center px-2">
         <Button
           variant="ghost"
           size="sm"

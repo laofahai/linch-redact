@@ -28,6 +28,16 @@ export interface MasksByPage {
   [pageIndex: number]: Mask[]
 }
 
+// 按文件存储的遮罩
+export interface MasksByFile {
+  [fileId: string]: MasksByPage
+}
+
+// 按文件存储的检测结果
+export interface DetectionHitsByFile {
+  [fileId: string]: DetectionHit[]
+}
+
 // OCR 引擎类型
 export type OcrEngineType = "paddle" | "tesseract"
 
@@ -81,12 +91,7 @@ export interface Platform {
 export type PlatformKey = "win-x64" | "mac-arm64" | "mac-x64" | "linux-x64"
 
 // 脱敏模式
-export type RedactionMode =
-  | "auto"
-  | "text_replace"
-  | "safe_render"
-  | "image_mode"
-  | "black_overlay"
+export type RedactionMode = "auto" | "text_replace" | "safe_render" | "image_mode" | "black_overlay"
 
 // 清理选项（与后端 CleaningOptions 对应）
 export interface CleaningOptions {
@@ -100,12 +105,7 @@ export interface CleaningOptions {
 }
 
 // 页面内容类型
-export type PageContentType =
-  | "text"
-  | "path_drawn"
-  | "image_based"
-  | "mixed"
-  | "empty"
+export type PageContentType = "text" | "path_drawn" | "image_based" | "mixed" | "empty"
 
 // PDF 分析结果
 export interface PdfAnalysis {
@@ -148,7 +148,6 @@ export interface ProcessingSettings {
   }
   output: {
     directory: string
-    suffix: "_redacted" | "_cleaned"
   }
 }
 

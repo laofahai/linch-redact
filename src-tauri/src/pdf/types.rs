@@ -155,11 +155,16 @@ pub struct FileProcessRequest {
 pub struct ProcessRequest {
     pub files: Vec<FileProcessRequest>,
     pub output_directory: String,
-    pub suffix: String,
+    #[serde(default = "default_prefix")]
+    pub prefix: String,
     #[serde(default)]
     pub mode: RedactionMode,
     #[serde(default)]
     pub cleaning: CleaningOptions,
+}
+
+fn default_prefix() -> String {
+    "redacted_".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

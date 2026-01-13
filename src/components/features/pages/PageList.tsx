@@ -1,12 +1,7 @@
 import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useFileStore, useEditorStore } from "@/stores"
 import { cn } from "@/lib/utils"
 
@@ -20,9 +15,10 @@ export function PageList({ hideTitle = false }: PageListProps) {
   const setPageAction = useFileStore((s) => s.setPageAction)
   const currentPage = useEditorStore((s) => s.currentPage)
   const setCurrentPage = useEditorStore((s) => s.setCurrentPage)
-  const masksByPage = useEditorStore((s) => s.masksByPage)
+  const getMasksByPage = useEditorStore((s) => s.getMasksByPage)
 
   const selectedFile = files.find((f) => f.id === selectedFileId) ?? null
+  const masksByPage = selectedFileId ? getMasksByPage(selectedFileId) : {}
 
   if (!selectedFile) {
     return null
@@ -61,9 +57,7 @@ export function PageList({ hideTitle = false }: PageListProps) {
             <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               页面列表
             </h3>
-            <span className="text-xs text-muted-foreground">
-              {pages.length} 页
-            </span>
+            <span className="text-xs text-muted-foreground">{pages.length} 页</span>
           </div>
         )}
 
@@ -88,12 +82,7 @@ export function PageList({ hideTitle = false }: PageListProps) {
                   )}
                   onClick={() => setCurrentPage(page.index)}
                 >
-                  <span
-                    className={cn(
-                      "flex-1",
-                      isDeleted && "line-through text-muted-foreground"
-                    )}
-                  >
+                  <span className={cn("flex-1", isDeleted && "line-through text-muted-foreground")}>
                     第 {page.index + 1} 页
                   </span>
 

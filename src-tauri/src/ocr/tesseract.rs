@@ -5,6 +5,21 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Instant;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+/// Windows 下隐藏命令行窗口的标志
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+/// 创建一个隐藏窗口的 Command（Windows 下不弹出 cmd 窗口）
+fn silent_command(program: &str) -> Command {
+    let mut cmd = Command::new(program);
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
 use crate::ocr::engine::OcrEngine;
 use crate::ocr::types::{
     BBox, OcrAuditInfo, OcrEngineType, OcrTextResult, TesseractConfig, TesseractStatus,
@@ -69,8 +84,8 @@ impl OcrEngine for TesseractEngine {
     fn recognize_file(&mut self, image_path: &str) -> Result<Vec<OcrTextResult>, String> {
         let start = Instant::now();
 
-        // 构建命令
-        let mut cmd = Command::new(self.binary_path());
+        // 构建命令（静默运行）
+        let mut cmd = silent_command(self.binary_path());
 
         cmd.arg(image_path)
             .arg("stdout")
@@ -163,7 +178,9 @@ fn parse_tesseract_tsv(
             continue;
         }
 
+        // TSV 格式：level page_num block_num par_num line_num word_num left top width height conf text
         let level: i32 = cols[0].parse().unwrap_or(-1);
+        let line_num: u32 = cols[4].parse().unwrap_or(0);
         let left: f32 = cols[6].parse().unwrap_or(0.0);
         let top: f32 = cols[7].parse().unwrap_or(0.0);
         let width: f32 = cols[8].parse().unwrap_or(0.0);
@@ -188,6 +205,7 @@ fn parse_tesseract_tsv(
             text: text.to_string(),
             confidence: conf / 100.0, // Tesseract 置信度是 0-100
             bbox,
+            line_num: Some(line_num),
         });
     }
 
@@ -228,7 +246,7 @@ pub fn find_tesseract_binary(config_path: Option<&str>) -> Result<(String, Strin
 
 /// 获取 Tesseract 版本
 pub fn get_tesseract_version(binary_path: &str) -> Result<String, String> {
-    let output = Command::new(binary_path)
+    let output = silent_command(binary_path)
         .arg("--version")
         .output()
         .map_err(|e| format!("无法执行 tesseract: {}", e))?;
@@ -260,7 +278,7 @@ pub fn get_tesseract_langs(
     binary_path: &str,
     tessdata_path: Option<&str>,
 ) -> Result<Vec<String>, String> {
-    let mut cmd = Command::new(binary_path);
+    let mut cmd = silent_command(binary_path);
     cmd.arg("--list-langs");
 
     if let Some(path) = tessdata_path {
@@ -326,8 +344,8 @@ pub fn detect_tesseract_status(config: &TesseractConfig) -> TesseractStatus {
 fn which_tesseract(binary: &str) -> Option<String> {
     #[cfg(target_os = "windows")]
     {
-        // 首先尝试 where 命令
-        let cmd = Command::new("where").arg(binary).output();
+        // 首先尝试 where 命令（静默运行）
+        let cmd = silent_command("where").arg(binary).output();
         if let Some(path) = cmd
             .ok()
             .filter(|o| o.status.success())
@@ -369,7 +387,7 @@ fn which_tesseract(binary: &str) -> Option<String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        let cmd = Command::new("which").arg(binary).output();
+        let cmd = silent_command("which").arg(binary).output();
         cmd.ok()
             .filter(|o| o.status.success())
             .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
@@ -387,7 +405,7 @@ fn find_tessdata_path(binary_path: &str) -> Option<String> {
     }
 
     // 尝试从 tesseract 输出中获取
-    let output = Command::new(binary_path)
+    let output = silent_command(binary_path)
         .arg("--print-parameters")
         .output()
         .ok()?;
@@ -743,20 +761,21 @@ where
         error: None,
     });
 
-    // 尝试使用 winget
-    let winget_check = Command::new("winget").arg("--version").output();
+    // 尝试使用 winget（静默检查）
+    let winget_check = silent_command("winget").arg("--version").output();
 
     if winget_check.is_ok() && winget_check.unwrap().status.success() {
         progress_callback(TesseractInstallProgress {
-            stage: "install".to_string(),
-            message: "正在下载并安装 Tesseract，可能需要几分钟...".to_string(),
+            stage: "download".to_string(),
+            message: "正在下载 Tesseract，请稍候...".to_string(),
             done: false,
             success: false,
             error: None,
         });
 
-        // 使用 spawn 启动安装进程，不阻塞等待
-        // 让用户可以看到安装界面并交互
+        // 使用 output() 等待安装完成，并捕获输出
+        // 注意：winget install 需要显示窗口以便用户交互（安装向导）
+        // 但我们可以使用 --silent 选项进行静默安装
         let result = Command::new("winget")
             .args([
                 "install",
@@ -765,24 +784,59 @@ where
                 "-e",
                 "--accept-source-agreements",
                 "--accept-package-agreements",
+                "--silent", // 静默安装，无需用户交互
             ])
-            .spawn();
+            .output();
 
         match result {
-            Ok(_child) => {
-                progress_callback(TesseractInstallProgress {
-                    stage: "installing".to_string(),
-                    message:
-                        "Tesseract 安装程序已启动，请按照安装向导完成安装。安装完成后点击刷新按钮。"
-                            .to_string(),
-                    done: true,
-                    success: true,
-                    error: None,
-                });
-                return Ok(());
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+
+                log::info!("[Tesseract] winget stdout: {}", stdout);
+                log::info!("[Tesseract] winget stderr: {}", stderr);
+
+                if output.status.success()
+                    || stdout.contains("successfully installed")
+                    || stdout.contains("已成功安装")
+                {
+                    progress_callback(TesseractInstallProgress {
+                        stage: "complete".to_string(),
+                        message: "Tesseract 安装成功！点击刷新按钮检测。".to_string(),
+                        done: true,
+                        success: true,
+                        error: None,
+                    });
+                    return Ok(());
+                } else if stdout.contains("already installed") || stdout.contains("已安装") {
+                    progress_callback(TesseractInstallProgress {
+                        stage: "complete".to_string(),
+                        message: "Tesseract 已经安装。点击刷新按钮检测。".to_string(),
+                        done: true,
+                        success: true,
+                        error: None,
+                    });
+                    return Ok(());
+                } else {
+                    // 可能需要管理员权限或其他问题
+                    let error_msg = if stderr.contains("administrator") || stderr.contains("管理员")
+                    {
+                        "安装需要管理员权限，请以管理员身份运行应用后重试".to_string()
+                    } else {
+                        format!("安装失败: {}", stderr.lines().next().unwrap_or("未知错误"))
+                    };
+                    progress_callback(TesseractInstallProgress {
+                        stage: "error".to_string(),
+                        message: error_msg.clone(),
+                        done: true,
+                        success: false,
+                        error: Some(error_msg.clone()),
+                    });
+                    return Err(error_msg);
+                }
             }
             Err(e) => {
-                let error_msg = format!("启动安装程序失败: {}", e);
+                let error_msg = format!("执行 winget 失败: {}", e);
                 progress_callback(TesseractInstallProgress {
                     stage: "error".to_string(),
                     message: error_msg.clone(),
@@ -798,7 +852,7 @@ where
     // winget 不可用，提示手动下载
     let download_url = "https://github.com/UB-Mannheim/tesseract/wiki";
 
-    // 尝试打开下载页面
+    // 尝试打开下载页面（这个需要显示窗口）
     #[cfg(target_os = "windows")]
     {
         let _ = Command::new("cmd")

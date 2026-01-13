@@ -16,10 +16,11 @@ export function PreviewCanvas({ file }: PreviewCanvasProps) {
   const [error, setError] = useState<string | null>(null)
 
   const currentPage = useEditorStore((s) => s.currentPage)
+  const currentFileId = useEditorStore((s) => s.currentFileId)
+  const masksByFile = useEditorStore((s) => s.masksByFile)
   const zoom = useEditorStore((s) => s.zoom)
   const setZoom = useEditorStore((s) => s.setZoom)
   const drawing = useEditorStore((s) => s.drawing)
-  const masksByPage = useEditorStore((s) => s.masksByPage)
   const selectedMaskId = useEditorStore((s) => s.selectedMaskId)
   const startDrawing = useEditorStore((s) => s.startDrawing)
   const updateDrawing = useEditorStore((s) => s.updateDrawing)
@@ -30,7 +31,8 @@ export function PreviewCanvas({ file }: PreviewCanvasProps) {
   const deleteSelectedMask = useEditorStore((s) => s.deleteSelectedMask)
   const setPageCount = useFileStore((s) => s.setPageCount)
 
-  const masks = masksByPage[currentPage] ?? []
+  // 直接从 state 计算 masks，确保状态变化时组件重新渲染
+  const masks = currentFileId ? (masksByFile[currentFileId]?.[currentPage] ?? []) : []
 
   // Ctrl + 滚轮缩放（在外层 wrapper 上监听）
   useEffect(() => {
@@ -96,8 +98,9 @@ export function PreviewCanvas({ file }: PreviewCanvasProps) {
         await renderPageToCanvas(page, canvasRef.current)
         setLoading(false)
         setError(null)
-      } catch (e: any) {
-        if (!cancelled && e?.name !== "RenderingCancelledException") {
+      } catch (e: unknown) {
+        const err = e as { name?: string }
+        if (!cancelled && err?.name !== "RenderingCancelledException") {
           console.error("Failed to load PDF:", e)
           setError("无法加载 PDF")
           setLoading(false)
@@ -123,7 +126,12 @@ export function PreviewCanvas({ file }: PreviewCanvasProps) {
         clientX: e.clientX,
         clientY: e.clientY,
         containerRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
-        canvasRect: { left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height },
+        canvasRect: {
+          left: canvasRect.left,
+          top: canvasRect.top,
+          width: canvasRect.width,
+          height: canvasRect.height,
+        },
         zoom,
       })
 
@@ -161,7 +169,9 @@ export function PreviewCanvas({ file }: PreviewCanvasProps) {
       const rect = containerRef.current?.getBoundingClientRect()
       console.log("[DEBUG] Drawing finished:", {
         relativeCoords: { x, y, width: w, height: h },
-        containerRect: rect ? { width: rect.width, height: rect.height, top: rect.top, left: rect.left } : null,
+        containerRect: rect
+          ? { width: rect.width, height: rect.height, top: rect.top, left: rect.left }
+          : null,
         zoom,
       })
       finishDrawing()

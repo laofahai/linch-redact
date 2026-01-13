@@ -160,7 +160,7 @@ fn redact_page(
 fn process_pdf_file(
     file_req: &FileProcessRequest,
     output_dir: &str,
-    suffix: &str,
+    prefix: &str,
     mode: &RedactionMode,
     cleaning: &types::CleaningOptions,
 ) -> Result<String, String> {
@@ -169,7 +169,7 @@ fn process_pdf_file(
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("output");
-    let output_filename = format!("{}{}.pdf", stem, suffix);
+    let output_filename = format!("{}{}.pdf", prefix, stem);
     let output_path = Path::new(output_dir).join(&output_filename);
 
     // 检测是否需要使用 SafeRender 模式
@@ -260,14 +260,19 @@ fn process_pdf_file(
     let mut file = fs::File::create(&output_path).map_err(|e| {
         let err_msg = e.to_string();
         log::error!("创建文件失败: {} - {}", output_path.display(), err_msg);
-        if err_msg.contains("denied") || err_msg.contains("being used") || err_msg.contains("拒绝")
-        {
-            format!(
-                "文件被占用，请关闭正在使用该文件的程序后重试: {}",
-                output_path.display()
-            )
+        // 检测文件被占用的各种错误信息
+        // Windows: "being used by another process" / "os error 32"
+        // Linux/macOS: "resource busy" / "Permission denied"
+        let is_file_locked = err_msg.contains("denied")
+            || err_msg.contains("being used")
+            || err_msg.contains("拒绝")
+            || err_msg.contains("os error 32")
+            || err_msg.contains("resource busy");
+
+        if is_file_locked {
+            format!("文件被占用，请关闭正在使用该文件的程序（如 PDF 阅读器）后重试",)
         } else {
-            format!("创建文件失败: {} - {}", output_path.display(), err_msg)
+            format!("创建文件失败: {}", err_msg)
         }
     })?;
 
@@ -338,7 +343,7 @@ pub async fn process_pdfs(request: ProcessRequest) -> Result<ProcessResult, Stri
         match process_pdf_file(
             file_req,
             &request.output_directory,
-            &request.suffix,
+            &request.prefix,
             &request.mode,
             &request.cleaning,
         ) {
