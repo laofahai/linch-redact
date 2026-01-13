@@ -22,7 +22,8 @@ use crate::config::{load_config, save_config, ConfigResult};
 use std::sync::Mutex;
 
 /// 当前活动的 OCR 引擎类型
-static CURRENT_ENGINE: Mutex<OcrEngineType> = Mutex::new(OcrEngineType::Paddle);
+/// 注意：默认值应与 OcrEngineType::default() 保持一致
+static CURRENT_ENGINE: Mutex<OcrEngineType> = Mutex::new(OcrEngineType::Tesseract);
 
 /// Tesseract 引擎实例
 static TESSERACT_ENGINE: Mutex<Option<TesseractEngine>> = Mutex::new(None);
