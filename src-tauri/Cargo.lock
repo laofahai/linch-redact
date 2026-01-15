@@ -2787,6 +2787,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "linch-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "linch-ocr"
 version = "0.1.0"
 dependencies = [
@@ -2801,14 +2811,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "linch-redact"
-version = "0.1.7"
+name = "linch-pdf"
+version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "linch-core",
+ "pdfium-render",
+ "serde",
+]
+
+[[package]]
+name = "linch-redact"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
  "chrono",
  "hex",
  "image",
  "imageproc",
+ "linch-core",
  "linch-ocr",
+ "linch-pdf",
+ "linch-text",
  "linch_tech_desktop_core",
  "log",
  "lopdf",
@@ -2830,6 +2854,15 @@ dependencies = [
  "tauri-plugin-updater",
  "thiserror 1.0.69",
  "zip 2.4.2",
+]
+
+[[package]]
+name = "linch-text"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "linch-core",
+ "regex",
 ]
 
 [[package]]

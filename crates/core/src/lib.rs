@@ -1,5 +1,11 @@
 //! Core orchestration for redaction tasks.
 
+pub mod document;
+pub mod rules;
+
+pub use document::{Document, Page};
+pub use rules::{HeuristicType, Rule, RuleSet, RuleType};
+
 use serde::{Deserialize, Serialize};
 
 pub type Result<T> = std::result::Result<T, CoreError>;

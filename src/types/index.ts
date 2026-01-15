@@ -1,3 +1,33 @@
+// ============================================================================
+// 新架构：通用文档类型
+// ============================================================================
+
+/// 支持的文件类型
+export type FileType = "pdf" | "txt" | "md" | "docx"
+
+/// 文档页面（来自后端）
+export interface DocumentPage {
+  page_number: number
+  content: string
+}
+
+/// 通用文档文件
+export interface DocumentFile {
+  id: string
+  path: string
+  name: string
+  fileType: FileType
+  pages: DocumentPage[]
+  totalPages: number
+  supportedFeatures: string[]
+  status: "pending" | "loading" | "ready" | "processing" | "completed" | "error"
+  error?: string
+}
+
+// ============================================================================
+// 兼容类型（逐步废弃）
+// ============================================================================
+
 // 文件相关类型
 export interface PdfFile {
   id: string

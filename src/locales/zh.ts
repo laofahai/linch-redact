@@ -1,8 +1,8 @@
 export const zh = {
   app: {
     name: "Linch 文档脱敏",
-    description: "PDF 敏感信息遮盖工具",
-    dragDropHint: "释放以添加 PDF 文件",
+    description: "多格式文档敏感信息脱敏工具",
+    dragDropHint: "释放以添加文件",
   },
 
   common: {
@@ -36,19 +36,19 @@ export const zh = {
     fileList: "文件列表",
     pageList: "页面列表",
     settings: "设置",
-    addFile: "点击选择 PDF 文件",
-    selectPdf: "选择 PDF 文件",
+    addFile: "点击选择文件",
+    selectPdf: "选择文件",
     pageN: "第 {{n}} 页",
     pageCount: "{{count}} 页",
-    loadingPages: "正在加载页面...",
+    loadingPages: "正在加载...",
     restorePage: "恢复此页",
     deletePage: "删除此页",
     pageRestored: "已恢复页面",
     pageMarkedDelete: "已标记删除",
     cannotDeleteLastPage: "无法删除最后一页",
-    cannotDeleteLastPageDesc: "PDF 必须至少保留一页",
+    cannotDeleteLastPageDesc: "文档必须至少保留一页",
     maskCount: "{{count}} 处",
-    noPdf: "添加 PDF 后可配置检测与选项。",
+    noPdf: "添加文件后可配置检测与选项。",
   },
 
   detection: {
@@ -159,9 +159,12 @@ export const zh = {
   },
 
   preview: {
-    loadFailed: "无法加载 PDF",
+    loadFailed: "无法加载文件",
+    noFile: "请选择或拖入文件",
     noMasks: "当前页无遮盖标记",
     maskCount: "遮盖区域: {{count}}",
+    characters: "字符",
+    emptyFile: "（空文件）",
   },
 
   analysis: {

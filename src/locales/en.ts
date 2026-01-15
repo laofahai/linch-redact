@@ -1,8 +1,8 @@
 export const en = {
   app: {
     name: "Linch Redact",
-    description: "PDF Sensitive Content Redaction Tool",
-    dragDropHint: "Drop PDF files here",
+    description: "Multi-format Document Redaction Tool",
+    dragDropHint: "Drop files here",
   },
 
   common: {
@@ -36,19 +36,19 @@ export const en = {
     fileList: "Files",
     pageList: "Pages",
     settings: "Settings",
-    addFile: "Click to select PDF files",
-    selectPdf: "Select PDF Files",
+    addFile: "Click to select files",
+    selectPdf: "Select Files",
     pageN: "Page {{n}}",
     pageCount: "{{count}} pages",
-    loadingPages: "Loading pages...",
+    loadingPages: "Loading...",
     restorePage: "Restore this page",
     deletePage: "Delete this page",
     pageRestored: "Page restored",
     pageMarkedDelete: "Page marked for deletion",
     cannotDeleteLastPage: "Cannot delete last page",
-    cannotDeleteLastPageDesc: "PDF must have at least one page",
+    cannotDeleteLastPageDesc: "Document must have at least one page",
     maskCount: "{{count}} masks",
-    noPdf: "Add a PDF to configure detection and options.",
+    noPdf: "Add a file to configure detection and options.",
   },
 
   detection: {
@@ -160,9 +160,12 @@ export const en = {
   },
 
   preview: {
-    loadFailed: "Failed to load PDF",
+    loadFailed: "Failed to load file",
+    noFile: "Select or drop a file",
     noMasks: "No masks on current page",
     maskCount: "Mask areas: {{count}}",
+    characters: "characters",
+    emptyFile: "(Empty file)",
   },
 
   analysis: {

@@ -58,3 +58,9 @@ chrono = "0.4"
 
 # OCR
 linch-ocr = { path = "../crates/ocr" }
+
+# Document Processing (New Architecture)
+linch-core = { path = "../crates/core" }
+linch-pdf = { path = "../crates/pdf" }
+linch-text = { path = "../crates/text" }
+anyhow = "1"

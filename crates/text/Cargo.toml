@@ -1,10 +1,9 @@
 [package]
-name = "linch-pdf"
+name = "linch-text"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
 anyhow = "1"
-pdfium-render = "0.8"
+regex = "1"
 linch-core = { path = "../core" }

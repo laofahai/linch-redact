@@ -27,6 +27,67 @@ pub use pdf::{analyze_pdf, detect_sensitive_content, process_pdfs};
 
 use linch_tech_desktop_core::{LinchConfig, LinchDesktopExt};
 
+// ============================================================================
+// 新架构：多文档格式支持
+// ============================================================================
+
+use linch_core::document::{Document, Page};
+use std::path::Path;
+
+/// 文档信息（返回给前端）
+#[derive(Clone, serde::Serialize)]
+pub struct DocumentInfo {
+    pub path: String,
+    pub name: String,
+    pub file_type: String,
+    pub pages: Vec<Page>,
+    pub total_pages: usize,
+    pub supported_features: Vec<String>,
+}
+
+/// 加载文档命令
+///
+/// 根据文件扩展名自动选择对应的处理器。
+#[tauri::command]
+async fn load_document(file_path: String) -> Result<DocumentInfo, String> {
+    let path = Path::new(&file_path);
+    let extension = path
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or("")
+        .to_lowercase();
+
+    let result = match extension.as_str() {
+        "pdf" => load_with_handler::<linch_pdf::PdfDocument>(path, "pdf"),
+        "txt" => load_with_handler::<linch_text::TextDocument>(path, "txt"),
+        "md" => load_with_handler::<linch_text::TextDocument>(path, "md"),
+        _ => Err(anyhow::anyhow!("不支持的文件类型: {}", extension)),
+    };
+
+    result.map_err(|e| e.to_string())
+}
+
+/// 使用指定处理器加载文档
+fn load_with_handler<D: Document>(path: &Path, file_type: &str) -> anyhow::Result<DocumentInfo> {
+    let doc = D::load(path)?;
+    let pages = doc.get_pages()?;
+    let total_pages = pages.len();
+    let supported_features = doc.get_supported_features();
+
+    Ok(DocumentInfo {
+        path: path.to_string_lossy().to_string(),
+        name: path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
+        file_type: file_type.to_string(),
+        pages,
+        total_pages,
+        supported_features,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let linch_config = LinchConfig::from_env();
@@ -67,6 +128,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // 新架构：文档加载
+            load_document,
             // 配置
             load_config,
             save_config,

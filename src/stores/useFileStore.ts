@@ -1,17 +1,33 @@
 import { create } from "zustand"
 import { nanoid } from "nanoid"
-import type { PdfFile, Page } from "@/types"
+import type { PdfFile, Page, DocumentFile, FileType } from "@/types"
 import { useSettingsStore } from "./useSettingsStore"
 import { useEditorStore } from "./useEditorStore"
+import { loadDocument, getFileType, isSupportedFileType } from "@/lib/tauri/document"
 
 interface FileStore {
+  // ============================================================================
+  // 新架构：通用文档支持
+  // ============================================================================
+  documents: DocumentFile[]
+  selectedDocumentId: string | null
+  isLoading: boolean
+  error: string | null
+
+  // 新架构操作
+  getSelectedDocument: () => DocumentFile | null
+  addDocuments: (paths: string[]) => Promise<void>
+  removeDocument: (id: string) => void
+  clearDocuments: () => void
+  selectDocument: (id: string | null) => void
+
+  // ============================================================================
+  // 兼容层：保留原有 PDF 功能
+  // ============================================================================
   files: PdfFile[]
   selectedFileId: string | null
 
-  // 计算属性
   getSelectedFile: () => PdfFile | null
-
-  // 操作
   addFiles: (paths: string[]) => void
   removeFile: (id: string) => void
   clearFiles: () => void
@@ -29,6 +45,111 @@ function getDirectory(filePath: string): string {
 }
 
 export const useFileStore = create<FileStore>((set, get) => ({
+  // ============================================================================
+  // 新架构状态
+  // ============================================================================
+  documents: [],
+  selectedDocumentId: null,
+  isLoading: false,
+  error: null,
+
+  getSelectedDocument: () => {
+    const { documents, selectedDocumentId } = get()
+    return documents.find((d) => d.id === selectedDocumentId) ?? null
+  },
+
+  addDocuments: async (paths) => {
+    // 过滤不支持的文件类型
+    const supportedPaths = paths.filter(isSupportedFileType)
+    if (supportedPaths.length === 0) {
+      set({ error: "没有支持的文件类型" })
+      return
+    }
+
+    // 创建占位文档
+    const placeholders: DocumentFile[] = supportedPaths.map((path) => ({
+      id: nanoid(),
+      path,
+      name: path.split(/[/\\]/).pop() ?? path,
+      fileType: getFileType(path) as FileType,
+      pages: [],
+      totalPages: 0,
+      supportedFeatures: [],
+      status: "loading",
+    }))
+
+    set((state) => ({
+      documents: [...state.documents, ...placeholders],
+      selectedDocumentId: state.selectedDocumentId ?? placeholders[0]?.id ?? null,
+      isLoading: true,
+      error: null,
+    }))
+
+    // 设置默认输出目录
+    if (get().documents.length === placeholders.length) {
+      const settingsStore = useSettingsStore.getState()
+      if (!settingsStore.settings.output.directory) {
+        settingsStore.setOutputDirectory(getDirectory(supportedPaths[0]))
+      }
+    }
+
+    // 并行加载所有文档
+    for (const placeholder of placeholders) {
+      try {
+        const info = await loadDocument(placeholder.path)
+        set((state) => ({
+          documents: state.documents.map((d) =>
+            d.id === placeholder.id
+              ? {
+                  ...d,
+                  fileType: info.file_type as FileType,
+                  pages: info.pages,
+                  totalPages: info.total_pages,
+                  supportedFeatures: info.supported_features,
+                  status: "ready",
+                }
+              : d
+          ),
+        }))
+      } catch (e) {
+        set((state) => ({
+          documents: state.documents.map((d) =>
+            d.id === placeholder.id ? { ...d, status: "error", error: String(e) } : d
+          ),
+        }))
+      }
+    }
+
+    set({ isLoading: false })
+  },
+
+  removeDocument: (id) => {
+    useEditorStore.getState().clearFileMasks(id)
+    set((state) => {
+      const documents = state.documents.filter((d) => d.id !== id)
+      const newSelectedId =
+        state.selectedDocumentId === id ? (documents[0]?.id ?? null) : state.selectedDocumentId
+      return { documents, selectedDocumentId: newSelectedId }
+    })
+  },
+
+  clearDocuments: () => {
+    useEditorStore.getState().clearAllMasks()
+    useEditorStore.getState().setCurrentFileId(null)
+    set({ documents: [], selectedDocumentId: null, error: null })
+  },
+
+  selectDocument: (id) => {
+    const { selectedDocumentId } = get()
+    if (id !== selectedDocumentId) {
+      useEditorStore.getState().setCurrentFileId(id)
+    }
+    set({ selectedDocumentId: id })
+  },
+
+  // ============================================================================
+  // 兼容层：原有 PDF 功能
+  // ============================================================================
   files: [],
   selectedFileId: null,
 
@@ -50,7 +171,6 @@ export const useFileStore = create<FileStore>((set, get) => ({
     set((state) => {
       const updated = [...state.files, ...newFiles]
 
-      // 如果是第一次添加文件且输出目录为空，设置默认输出目录
       if (state.files.length === 0 && newFiles.length > 0) {
         const settingsStore = useSettingsStore.getState()
         if (!settingsStore.settings.output.directory) {
@@ -61,7 +181,6 @@ export const useFileStore = create<FileStore>((set, get) => ({
 
       const newSelectedId = state.selectedFileId ?? newFiles[0]?.id ?? null
 
-      // 如果是第一个文件，设置 editor store 的 currentFileId
       if (!state.selectedFileId && newSelectedId) {
         useEditorStore.getState().setCurrentFileId(newSelectedId)
       }
@@ -74,7 +193,6 @@ export const useFileStore = create<FileStore>((set, get) => ({
   },
 
   removeFile: (id) => {
-    // 清除该文件关联的 masks
     useEditorStore.getState().clearFileMasks(id)
 
     set((state) => {
@@ -82,7 +200,6 @@ export const useFileStore = create<FileStore>((set, get) => ({
       const newSelectedId =
         state.selectedFileId === id ? (files[0]?.id ?? null) : state.selectedFileId
 
-      // 更新 editor store 的 currentFileId
       if (newSelectedId !== state.selectedFileId) {
         useEditorStore.getState().setCurrentFileId(newSelectedId)
       }
@@ -92,7 +209,6 @@ export const useFileStore = create<FileStore>((set, get) => ({
   },
 
   clearFiles: () => {
-    // 清除所有 masks 和重置编辑器状态
     useEditorStore.getState().clearAllMasks()
     useEditorStore.getState().setCurrentFileId(null)
 
@@ -102,7 +218,6 @@ export const useFileStore = create<FileStore>((set, get) => ({
   selectFile: (id) => {
     const { selectedFileId } = get()
     if (id !== selectedFileId) {
-      // 切换文件时更新 editor store 的 currentFileId
       useEditorStore.getState().setCurrentFileId(id)
     }
     set({ selectedFileId: id })
