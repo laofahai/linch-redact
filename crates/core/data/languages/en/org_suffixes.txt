@@ -1,0 +1,46 @@
+# English organization suffixes
+# Used for organization name detection
+
+# Corporate
+Inc
+Inc.
+Incorporated
+Corp
+Corp.
+Corporation
+LLC
+L.L.C.
+Ltd
+Ltd.
+Limited
+Co
+Co.
+Company
+PLC
+P.L.C.
+LLP
+L.L.P.
+Group
+Holdings
+
+# Education
+University
+College
+Institute
+Academy
+School
+
+# Healthcare
+Hospital
+Clinic
+Medical Center
+
+# Finance
+Bank
+Insurance
+Securities
+
+# Research
+Foundation
+Association
+Society

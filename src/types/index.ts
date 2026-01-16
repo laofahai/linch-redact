@@ -148,12 +148,25 @@ export interface PdfAnalysis {
   recommendedMode: RedactionMode
 }
 
+// 启发式规则类型（与后端 HeuristicType 对应）
+export type HeuristicType =
+  | "Address" // 地址（支持中英文）
+  | "PersonName" // 人名（支持中英文）
+  | "Organization" // 组织（支持中英文）
+  | "Date" // 日期
+  | "Amount" // 金额
+  | "Phone" // 电话
+  | "Email" // 邮箱
+  | "IdNumber" // 身份证/社会安全号
+  | "CreditCard" // 信用卡
+
 // 规则类型
 export interface Rule {
   id: string
   name: string
-  ruleType: "keyword" | "regex"
-  pattern: string
+  ruleType: "keyword" | "regex" | "heuristic"
+  pattern: string // keyword/regex 使用
+  heuristicType?: HeuristicType // heuristic 使用
   enabled: boolean
 }
 

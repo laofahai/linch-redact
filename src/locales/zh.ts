@@ -84,8 +84,9 @@ export const zh = {
       keyword: "关键词",
     },
     pattern: "正则或关键词",
-    builtinRules: "内置规则",
+    builtinRules: "内置",
     customRules: "自定义规则",
+    heuristicRules: "智能识别",
     deleteRule: "删除规则",
   },
 

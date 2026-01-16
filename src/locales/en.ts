@@ -85,8 +85,9 @@ export const en = {
       keyword: "Keyword",
     },
     pattern: "Regex or Keyword",
-    builtinRules: "Built-in Rules",
+    builtinRules: "Built-in",
     customRules: "Custom Rules",
+    heuristicRules: "Smart Detection",
     deleteRule: "Delete Rule",
   },
 

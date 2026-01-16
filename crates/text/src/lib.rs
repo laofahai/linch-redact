@@ -42,27 +42,8 @@ impl Document for TextDocument {
     }
 
     fn redact(&self, ruleset: &RuleSet) -> Result<Vec<u8>> {
-        let mut result = self.content.clone();
-
-        // 应用所有启用的规则
-        for rule in ruleset.enabled_rules() {
-            match &rule.rule_type {
-                linch_core::rules::RuleType::Regex(pattern) => {
-                    if let Ok(re) = regex::Regex::new(pattern) {
-                        result = re.replace_all(&result, "██████").to_string();
-                    }
-                }
-                linch_core::rules::RuleType::Dictionary(words) => {
-                    for word in words {
-                        result = result.replace(word, "██████");
-                    }
-                }
-                linch_core::rules::RuleType::Heuristic(_) => {
-                    // TODO: 实现启发式算法
-                }
-            }
-        }
-
+        // 使用 RuleSet 的 redact_text 方法进行脱敏
+        let result = ruleset.redact_text(&self.content, None);
         Ok(result.into_bytes())
     }
 

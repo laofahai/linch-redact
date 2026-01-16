@@ -21,8 +21,8 @@ function AppContent() {
   const { t } = useTranslation()
   const loadStatus = useOcrStore((s) => s.loadStatus)
   const loadRules = useDetectionRulesStore((s) => s.loadRules)
-  const addFiles = useFileStore((s) => s.addFiles)
-  const hasSelectedFile = !!useFileStore((s) => s.selectedFileId)
+  const addDocuments = useFileStore((s) => s.addDocuments)
+  const hasSelectedDocument = !!useFileStore((s) => s.selectedDocumentId)
   const settingsDialogOpen = useSettingsDialogStore((s) => s.isOpen)
   const closeSettingsDialog = useSettingsDialogStore((s) => s.closeDialog)
   const [isDragging, setIsDragging] = useState(false)
@@ -114,10 +114,13 @@ function AppContent() {
       } else if (event.payload.type === "drop") {
         setIsDragging(false)
         const paths = event.payload.paths
-        // 只添加 PDF 文件
-        const pdfPaths = paths.filter((p) => p.toLowerCase().endsWith(".pdf"))
-        if (pdfPaths.length > 0) {
-          addFiles(pdfPaths)
+        // 支持多种文件格式
+        const supportedExts = [".pdf", ".txt", ".md"]
+        const validPaths = paths.filter((p) =>
+          supportedExts.some((ext) => p.toLowerCase().endsWith(ext))
+        )
+        if (validPaths.length > 0) {
+          addDocuments(validPaths)
         }
       } else if (event.payload.type === "leave") {
         setIsDragging(false)
@@ -127,7 +130,7 @@ function AppContent() {
     return () => {
       unlisten.then((fn) => fn())
     }
-  }, [addFiles])
+  }, [addDocuments])
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden bg-background border border-border">
@@ -137,7 +140,7 @@ function AppContent() {
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex flex-1 overflow-hidden">
             <MainPanel />
-            {hasSelectedFile && <RightPanel />}
+            {hasSelectedDocument && <RightPanel />}
           </div>
           <Footer />
         </div>

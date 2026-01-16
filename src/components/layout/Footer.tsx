@@ -2,28 +2,20 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { FolderOpen, Play, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useFileStore, useSettingsStore, useOcrStore, useEditorStore } from "@/stores"
+import { useFileStore, useSettingsStore, useDetectionRulesStore } from "@/stores"
 import { open } from "@tauri-apps/plugin-dialog"
 import { toast } from "sonner"
-import { processPdfs } from "@/lib/tauri"
+import { applyRedaction } from "@/lib/tauri/document"
 
 export function Footer() {
   const { t } = useTranslation()
-  const files = useFileStore((s) => s.files)
+  const documents = useFileStore((s) => s.documents)
   const settings = useSettingsStore((s) => s.settings)
   const setOutputDirectory = useSettingsStore((s) => s.setOutputDirectory)
-  const engineStatus = useOcrStore((s) => s.engineStatus)
-  const currentEngine = useOcrStore((s) => s.currentEngine)
-  const openOcrDialog = useOcrStore((s) => s.openDialog)
-
-  const isOcrReady =
-    currentEngine === "paddle"
-      ? (engineStatus?.paddle.installed ?? false)
-      : (engineStatus?.tesseract.installed ?? false)
-  const getMasksByPage = useEditorStore((s) => s.getMasksByPage)
+  const rules = useDetectionRulesStore((s) => s.rules)
   const [processing, setProcessing] = useState(false)
 
-  const hasFiles = files.length > 0
+  const hasDocuments = documents.length > 0
   const outputDir = settings.output.directory || t("processing.selectOutputDir")
 
   const handleSelectOutput = async () => {
@@ -37,68 +29,51 @@ export function Footer() {
   }
 
   const handleStartProcessing = async () => {
-    const needsOcr = settings.mode === "searchable"
-
-    if (needsOcr && !isOcrReady) {
-      openOcrDialog()
+    if (!settings.output.directory) {
+      toast.error(t("processing.selectOutputDirFirst"))
       return
     }
 
-    if (!settings.output.directory) {
-      toast.error(t("processing.selectOutputDirFirst"))
+    const enabledRules = rules.filter((r) => r.enabled)
+    if (enabledRules.length === 0) {
+      toast.error(t("detection.selectAtLeastOneRule"))
       return
     }
 
     setProcessing(true)
 
     try {
-      const request = {
-        files: files.map((file) => {
-          const fileMasks = getMasksByPage(file.id)
-          return {
-            path: file.path,
-            pages: file.pages.map((p) => ({
-              index: p.index,
-              action: p.action,
-            })),
-            masks_by_page: Object.fromEntries(
-              Object.entries(fileMasks).map(([pageIdx, masks]) => [
-                parseInt(pageIdx),
-                masks.map((m: { x: number; y: number; width: number; height: number }) => ({
-                  x: m.x,
-                  y: m.y,
-                  width: m.width,
-                  height: m.height,
-                })),
-              ])
-            ),
+      let successCount = 0
+      let errorCount = 0
+
+      for (const doc of documents) {
+        if (doc.status !== "ready") continue
+
+        // 生成输出文件名
+        const fileName = doc.name
+        const ext = fileName.split(".").pop() || ""
+        const baseName = fileName.slice(0, -(ext.length + 1))
+        const outputPath = `${settings.output.directory}/redacted_${baseName}.${ext}`
+
+        try {
+          const result = await applyRedaction(doc.path, enabledRules, outputPath)
+          if (result.success) {
+            successCount++
+            console.log(`[OK] ${doc.name}: ${result.message}`)
+          } else {
+            errorCount++
+            console.error(`[FAIL] ${doc.name}: ${result.message}`)
           }
-        }),
-        output_directory: settings.output.directory,
-        prefix: "redacted_",
-        mode: settings.redactionMode,
-        cleaning: settings.cleaning,
+        } catch (e) {
+          errorCount++
+          console.error(`[ERROR] ${doc.name}:`, e)
+        }
       }
 
-      console.log("[DEBUG] Processing request:", JSON.stringify(request, null, 2))
-
-      const result = await processPdfs(request)
-
-      if (result.success) {
-        toast.success(t("processing.processComplete", { count: result.processed_files.length }))
+      if (errorCount === 0) {
+        toast.success(t("processing.processComplete", { count: successCount }))
       } else {
-        // 显示详细的错误信息给用户
-        const errorCount = result.errors.length
-        if (errorCount === 1) {
-          toast.error(result.errors[0])
-        } else {
-          toast.error(t("processing.processFailedMultiple", { count: errorCount }))
-          // 逐个显示错误详情
-          result.errors.forEach((err) => {
-            toast.error(err, { duration: 8000 })
-          })
-        }
-        result.errors.forEach((err) => console.error(err))
+        toast.error(t("processing.processFailedMultiple", { count: errorCount }))
       }
     } catch (e) {
       toast.error(`${t("processing.processFailed")}: ${e}`)
@@ -119,7 +94,7 @@ export function Footer() {
       </button>
 
       <div className="flex items-center gap-2">
-        <Button size="sm" disabled={!hasFiles || processing} onClick={handleStartProcessing}>
+        <Button size="sm" disabled={!hasDocuments || processing} onClick={handleStartProcessing}>
           {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
           {processing ? t("common.processing") : t("processing.startProcessing")}
         </Button>

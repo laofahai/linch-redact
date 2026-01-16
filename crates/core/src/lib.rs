@@ -4,7 +4,7 @@ pub mod document;
 pub mod rules;
 
 pub use document::{Document, Page};
-pub use rules::{HeuristicType, Rule, RuleSet, RuleType};
+pub use rules::{HeuristicType, Rule, RuleMatch, RuleSet, RuleType};
 
 use serde::{Deserialize, Serialize};
 
